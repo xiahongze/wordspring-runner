@@ -31,9 +31,9 @@ void ArticleWindowTest::bookmarkAndLinkedEntry()
     QCOMPARE(sqlite3_open(path.toUtf8().constData(), &db), SQLITE_OK);
     const char *sql = "CREATE TABLE entries(id INTEGER PRIMARY KEY,headword TEXT,preview TEXT,html TEXT,meanings TEXT);"
                       "CREATE TABLE keys(norm TEXT,entry_id INTEGER);"
-                      "INSERT INTO entries VALUES(1,'happy','pleased','<p>See <a href=\"bword://other\">other</a></p>','pleased');"
-                      "INSERT INTO entries VALUES(2,'other','second','<p>other definition</p>','second');"
-                      "INSERT INTO keys VALUES('happy',1);INSERT INTO keys VALUES('other',2);";
+                      "INSERT INTO entries VALUES(1,'happy','pleased','<p>See <a href=\"bword://%E7%8C%AB\">猫</a></p>','pleased');"
+                      "INSERT INTO entries VALUES(2,'猫','cat','<p>猫 means cat</p>','cat');"
+                      "INSERT INTO keys VALUES('happy',1);INSERT INTO keys VALUES('猫',2);";
     QCOMPARE(sqlite3_exec(db, sql, nullptr, nullptr, nullptr), SQLITE_OK);
     sqlite3_close(db);
     UserState::clearHistory();
@@ -54,9 +54,10 @@ void ArticleWindowTest::bookmarkAndLinkedEntry()
     QCOMPARE(saved.first().headword, QStringLiteral("happy"));
     auto *body = window.findChild<QTextBrowser *>(QStringLiteral("articleBody"));
     QVERIFY(body);
-    QVERIFY(QMetaObject::invokeMethod(body, "anchorClicked", Qt::DirectConnection, Q_ARG(QUrl, QUrl(QStringLiteral("bword://other")))));
-    QCOMPARE(window.currentArticle().headword, QStringLiteral("other"));
-    QVERIFY(body->toPlainText().contains(QStringLiteral("other definition")));
+    const QUrl link(QStringLiteral("bword://%E7%8C%AB"));
+    QVERIFY(QMetaObject::invokeMethod(body, "anchorClicked", Qt::DirectConnection, Q_ARG(QUrl, link)));
+    QCOMPARE(window.currentArticle().headword, QStringLiteral("猫"));
+    QVERIFY(body->toPlainText().contains(QStringLiteral("猫 means cat")));
     QCOMPARE(UserState::history().size(), 2);
     UserState::setFavorite(Store::article(source, 1), false);
     UserState::clearHistory();

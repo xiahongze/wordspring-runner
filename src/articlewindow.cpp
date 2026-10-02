@@ -100,6 +100,8 @@ ArticleWindow::ArticleWindow(QWidget *parent) : QWidget(parent)
         ".ws-pos { color: %1; font-size: 11pt; margin-top: 5px; margin-bottom: 9px; }"
         ".ws-posname { font-weight: bold; }"
         ".ws-sense { margin-top: 7px; margin-bottom: 5px; }"
+        ".ws-translation-group { margin-top: 4px; margin-bottom: 4px; }"
+        ".ws-example-row { margin-left: 18px; margin-top: 3px; margin-bottom: 3px; }"
         ".ws-number, .ws-qualifier { color: %1; }"
         ".ws-definition { font-weight: bold; }"
         ".ws-example { color: %1; font-style: italic; }"
@@ -122,7 +124,10 @@ ArticleWindow::ArticleWindow(QWidget *parent) : QWidget(parent)
     });
     connect(m_body, &QTextBrowser::anchorClicked, this, [this](const QUrl &url) {
         if (url.scheme() != QStringLiteral("bword")) return;
-        followWord(QUrl::fromPercentEncoding(url.toEncoded().mid(sizeof("bword://") - 1)));
+        QString word = QUrl::fromAce(url.host().toLatin1(), QUrl::IgnoreIDNWhitelist);
+        const auto path = url.path(QUrl::FullyDecoded);
+        if (!path.isEmpty()) word += path.startsWith(QLatin1Char('/')) ? path.mid(1) : path;
+        followWord(word);
     });
 }
 

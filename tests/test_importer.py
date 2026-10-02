@@ -63,6 +63,16 @@ class ImporterTest(unittest.TestCase):
                 '<span class="df" d:def="1">second meaning</span>')
         self.assertEqual(module.extract_meanings(html, True, "fallback"), "first meaning\nsecond meaning")
 
+    def test_japanese_translation_and_examples_have_separate_blocks(self):
+        html = ('<span class="hwg"><span class="hw">猫</span></span>'
+                '<span class="gramb"><span class="trgg"><span class="trg" d:def="1">a cat</span></span>'
+                '<span class="exg"><span class="ex">三毛猫</span> calico cat</span></span>')
+        cleaned, _preview = module.clean_definition(html, True)
+        self.assertIn('class="ws-head"', cleaned)
+        self.assertIn('class="ws-translation-group"', cleaned)
+        self.assertIn('class="ws-example-row"', cleaned)
+        self.assertEqual(module.extract_meanings(html, True, "fallback"), "a cat")
+
     def test_failed_import_preserves_existing_database(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

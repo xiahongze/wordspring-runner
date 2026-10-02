@@ -37,7 +37,7 @@ class CleanHTML(HTMLParser):
         rendered = tag
         style_class = ""
         if tag == "span":
-            if "hg" in classes:
+            if "hg" in classes or "hwg" in classes:
                 rendered, style_class = "h1", "ws-head"
             elif "hw" in classes:
                 style_class = "ws-word"
@@ -51,6 +51,16 @@ class CleanHTML(HTMLParser):
                 rendered, style_class = "div", "ws-sense"
             elif "se1" in classes:
                 rendered, style_class = "div", "ws-part"
+            elif "gramb" in classes:
+                rendered, style_class = "div", "ws-part"
+            elif "semb" in classes:
+                rendered, style_class = "div", "ws-sense"
+            elif "trgg" in classes:
+                rendered, style_class = "div", "ws-translation-group"
+            elif "exg" in classes:
+                rendered, style_class = "p", "ws-example-row"
+            elif "trg" in classes and dict(attrs).get("d:def") == "1":
+                rendered, style_class = "strong", "ws-definition"
             elif "msDict" in classes:
                 if "t_subsense" in classes:
                     rendered, style_class = "p", "ws-subsense"
@@ -72,7 +82,7 @@ class CleanHTML(HTMLParser):
                 rendered, style_class = "h3", "ws-section-title"
             elif "l" in classes and "x_xoh" in classes:
                 rendered, style_class = "strong", "ws-phrase-head"
-            elif any(c in classes for c in ("ge", "reg", "gg", "lg")):
+            elif any(c in classes for c in ("ge", "reg", "gg", "lg", "grnote")):
                 style_class = "ws-qualifier"
             elif any(c.startswith("se") and c[2:].isdigit() for c in classes):
                 rendered = "div"
@@ -134,6 +144,7 @@ class MeaningCollector(HTMLParser):
         self.active = []
         self.primary = []
         self.definitions = []
+        self.translations = []
         self.blocks = []
 
     def handle_starttag(self, tag, attrs):
@@ -143,6 +154,8 @@ class MeaningCollector(HTMLParser):
         if "df" in classes:
             kind = "primary" if attributes.get("d:def") == "1" else "definitions"
             self.active.append((self.depth, kind, []))
+        elif "trg" in classes:
+            self.active.append((self.depth, "translations", []))
         elif tag in {"p", "li"}:
             self.active.append((self.depth, "blocks", []))
 
@@ -167,7 +180,7 @@ def extract_meanings(definition, is_html, preview):
     else:
         collector = MeaningCollector()
         collector.feed(definition)
-        candidates = collector.primary or collector.definitions or collector.blocks
+        candidates = collector.primary or collector.translations or collector.definitions or collector.blocks
     result = []
     for candidate in candidates:
         candidate = " ".join(candidate.split())
