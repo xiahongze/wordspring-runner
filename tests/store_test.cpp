@@ -1,4 +1,5 @@
 #include "store.h"
+#include "userstate.h"
 
 #include <QDir>
 #include <QFile>
@@ -12,7 +13,27 @@ class StoreTest : public QObject {
 private slots:
     void lookupOnlyEnabled();
     void shortLabels();
+    void favoritesAndHistory();
 };
+
+void StoreTest::favoritesAndHistory()
+{
+    qputenv("XDG_DATA_HOME", "/tmp/wordspring-test-data");
+    const Article article{QStringLiteral("/tmp/test-dictionary.ifo"), 42, QStringLiteral("happy"), {}, {}, {}, QStringLiteral("Test Dictionary")};
+    UserState::clearHistory();
+    UserState::setFavorite(article, false);
+    UserState::recordVisit(article);
+    UserState::setFavorite(article, true);
+    QCOMPARE(UserState::history(QStringLiteral("hap")).size(), 1);
+    QCOMPARE(UserState::favorites().size(), 1);
+    QVERIFY(UserState::isFavorite(article.source, article.id));
+    UserState::clearHistory();
+    QVERIFY(UserState::history().isEmpty());
+    QVERIFY(UserState::isFavorite(article.source, article.id));
+    UserState::setFavorite(article, false);
+    QVERIFY(UserState::favorites().isEmpty());
+    QFile::remove(UserState::databasePath());
+}
 
 void StoreTest::shortLabels()
 {

@@ -19,7 +19,7 @@ find_package(KF6I18n REQUIRED)
 find_package(SQLite3 REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
-add_library(wordspring_core STATIC src/store.cpp src/store.h)
+add_library(wordspring_core STATIC src/store.cpp src/store.h src/userstate.cpp src/userstate.h)
 set_target_properties(wordspring_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(wordspring_core PUBLIC Qt6::Core KF6::ConfigCore SQLite3::SQLite3)
 target_include_directories(wordspring_core PUBLIC src)
