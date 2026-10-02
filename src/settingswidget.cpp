@@ -1,4 +1,5 @@
 #include "settingswidget.h"
+#include "userstate.h"
 #include <KLocalizedString>
 
 #include <QDir>
@@ -12,17 +13,25 @@
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
+#include <QMessageBox>
 #include <QProcess>
 #include <QPushButton>
 #include <QRegularExpressionValidator>
 #include <QSignalBlocker>
 #include <QStandardPaths>
 #include <QTableWidget>
+#include <QTabWidget>
 #include <QVBoxLayout>
 
 SettingsWidget::SettingsWidget(QWidget *parent) : QWidget(parent)
 {
-    auto *layout = new QVBoxLayout(this);
+    auto *outerLayout = new QVBoxLayout(this);
+    m_tabs = new QTabWidget(this);
+    outerLayout->addWidget(m_tabs);
+    auto *dictionaryPage = new QWidget(m_tabs);
+    m_tabs->addTab(dictionaryPage, i18nd("wordspring-runner", "Dictionaries"));
+    auto *layout = new QVBoxLayout(dictionaryPage);
     auto *form = new QFormLayout;
     m_trigger = new QLineEdit(this);
     m_trigger->setPlaceholderText(QStringLiteral("define"));
@@ -93,7 +102,97 @@ SettingsWidget::SettingsWidget(QWidget *parent) : QWidget(parent)
         if (item->column() == 1) m_items[item->row()].label = item->text().trimmed().left(12);
         emit modified();
     });
+
+    auto *activityPage = new QWidget(m_tabs);
+    m_tabs->addTab(activityPage, i18nd("wordspring-runner", "Favorites & History"));
+    auto *activityLayout = new QVBoxLayout(activityPage);
+    m_filter = new QLineEdit(activityPage);
+    m_filter->setPlaceholderText(i18nd("wordspring-runner", "Filter saved words and history"));
+    activityLayout->addWidget(m_filter);
+    auto *activityTabs = new QTabWidget(activityPage);
+    activityLayout->addWidget(activityTabs);
+
+    auto *favoritesPage = new QWidget(activityTabs);
+    auto *favoritesLayout = new QVBoxLayout(favoritesPage);
+    m_favoritesList = new QListWidget(favoritesPage);
+    favoritesLayout->addWidget(m_favoritesList);
+    auto *favoriteButtons = new QHBoxLayout;
+    auto *openFavorite = new QPushButton(i18nd("wordspring-runner", "Open"), favoritesPage);
+    auto *removeFavorite = new QPushButton(i18nd("wordspring-runner", "Remove favorite"), favoritesPage);
+    favoriteButtons->addWidget(openFavorite);
+    favoriteButtons->addWidget(removeFavorite);
+    favoriteButtons->addStretch();
+    favoritesLayout->addLayout(favoriteButtons);
+    activityTabs->addTab(favoritesPage, i18nd("wordspring-runner", "Favorites"));
+
+    auto *historyPage = new QWidget(activityTabs);
+    auto *historyLayout = new QVBoxLayout(historyPage);
+    m_historyList = new QListWidget(historyPage);
+    historyLayout->addWidget(m_historyList);
+    auto *historyButtons = new QHBoxLayout;
+    auto *openHistory = new QPushButton(i18nd("wordspring-runner", "Open"), historyPage);
+    auto *clearHistory = new QPushButton(i18nd("wordspring-runner", "Clear history"), historyPage);
+    historyButtons->addWidget(openHistory);
+    historyButtons->addWidget(clearHistory);
+    historyButtons->addStretch();
+    historyLayout->addLayout(historyButtons);
+    activityTabs->addTab(historyPage, i18nd("wordspring-runner", "History"));
+
+    connect(m_filter, &QLineEdit::textChanged, this, &SettingsWidget::refreshActivity);
+    connect(m_tabs, &QTabWidget::currentChanged, this, [this](int index) { if (index == 1) refreshActivity(); });
+    connect(openFavorite, &QPushButton::clicked, this, [this] { openSaved(m_favoritesList); });
+    connect(openHistory, &QPushButton::clicked, this, [this] { openSaved(m_historyList); });
+    connect(m_favoritesList, &QListWidget::itemDoubleClicked, this, [this] { openSaved(m_favoritesList); });
+    connect(m_historyList, &QListWidget::itemDoubleClicked, this, [this] { openSaved(m_historyList); });
+    connect(removeFavorite, &QPushButton::clicked, this, [this] {
+        auto *item = m_favoritesList->currentItem();
+        if (!item) return;
+        Article article;
+        article.source = item->data(Qt::UserRole).toString();
+        article.id = item->data(Qt::UserRole + 1).toLongLong();
+        article.headword = item->data(Qt::UserRole + 2).toString();
+        UserState::setFavorite(article, false);
+        refreshActivity();
+    });
+    connect(clearHistory, &QPushButton::clicked, this, [this] {
+        if (QMessageBox::question(this, i18nd("wordspring-runner", "Clear history"),
+                i18nd("wordspring-runner", "Remove all lookup history? Favorites will be kept.")) != QMessageBox::Yes) return;
+        UserState::clearHistory();
+        refreshActivity();
+    });
     load();
+}
+
+void SettingsWidget::showActivity()
+{
+    m_tabs->setCurrentIndex(1);
+    refreshActivity();
+}
+
+void SettingsWidget::refreshActivity()
+{
+    const auto fill = [](QListWidget *list, const QVector<SavedEntry> &entries) {
+        list->clear();
+        for (const auto &entry : entries) {
+            auto *item = new QListWidgetItem(entry.headword + QStringLiteral("  ·  ") + entry.dictionary, list);
+            item->setToolTip(entry.source);
+            item->setData(Qt::UserRole, entry.source);
+            item->setData(Qt::UserRole + 1, entry.id);
+            item->setData(Qt::UserRole + 2, entry.headword);
+        }
+    };
+    fill(m_favoritesList, UserState::favorites(m_filter->text()));
+    fill(m_historyList, UserState::history(m_filter->text()));
+}
+
+void SettingsWidget::openSaved(QListWidget *list)
+{
+    auto *item = list->currentItem();
+    if (!item) return;
+    const auto executable = QStandardPaths::findExecutable(QStringLiteral("wordspring"));
+    if (executable.isEmpty()) return;
+    QProcess::startDetached(executable, {QStringLiteral("--source"), item->data(Qt::UserRole).toString(),
+        QStringLiteral("--entry"), item->data(Qt::UserRole + 1).toString()});
 }
 
 void SettingsWidget::load()
@@ -103,6 +202,7 @@ void SettingsWidget::load()
     m_items = Store::dictionaries();
     m_pendingRemoval.clear();
     refreshTable();
+    refreshActivity();
 }
 
 void SettingsWidget::save()
