@@ -105,11 +105,11 @@ SettingsWidget::SettingsWidget(QWidget *parent) : QWidget(parent)
     });
 
     auto *activityPage = new QWidget(m_tabs);
-    m_tabs->addTab(activityPage, i18nd("wordspring-runner", "Favorites && History"));
+    m_tabs->addTab(activityPage, i18nd("wordspring-runner", "Bookmarks && History"));
     auto *activityLayout = new QVBoxLayout(activityPage);
     auto *filterRow = new QHBoxLayout;
     m_filter = new QLineEdit(activityPage);
-    m_filter->setPlaceholderText(i18nd("wordspring-runner", "Filter saved words and history"));
+    m_filter->setPlaceholderText(i18nd("wordspring-runner", "Filter bookmarks and history"));
     filterRow->addWidget(m_filter);
     auto *refresh = new QPushButton(i18nd("wordspring-runner", "Refresh"), activityPage);
     filterRow->addWidget(refresh);
@@ -123,12 +123,12 @@ SettingsWidget::SettingsWidget(QWidget *parent) : QWidget(parent)
     favoritesLayout->addWidget(m_favoritesList);
     auto *favoriteButtons = new QHBoxLayout;
     auto *openFavorite = new QPushButton(i18nd("wordspring-runner", "Open"), favoritesPage);
-    auto *removeFavorite = new QPushButton(i18nd("wordspring-runner", "Remove favorite"), favoritesPage);
+    auto *removeFavorite = new QPushButton(i18nd("wordspring-runner", "Remove bookmark"), favoritesPage);
     favoriteButtons->addWidget(openFavorite);
     favoriteButtons->addWidget(removeFavorite);
     favoriteButtons->addStretch();
     favoritesLayout->addLayout(favoriteButtons);
-    activityTabs->addTab(favoritesPage, i18nd("wordspring-runner", "Favorites"));
+    activityTabs->addTab(favoritesPage, i18nd("wordspring-runner", "Bookmarks"));
 
     auto *historyPage = new QWidget(activityTabs);
     auto *historyLayout = new QVBoxLayout(historyPage);
@@ -162,7 +162,7 @@ SettingsWidget::SettingsWidget(QWidget *parent) : QWidget(parent)
     });
     connect(clearHistory, &QPushButton::clicked, this, [this] {
         if (QMessageBox::question(this, i18nd("wordspring-runner", "Clear history"),
-                i18nd("wordspring-runner", "Remove all lookup history? Favorites will be kept.")) != QMessageBox::Yes) return;
+                i18nd("wordspring-runner", "Remove all lookup history? Bookmarks will be kept.")) != QMessageBox::Yes) return;
         UserState::clearHistory();
         refreshActivity();
     });

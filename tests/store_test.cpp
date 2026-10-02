@@ -32,6 +32,16 @@ void StoreTest::favoritesAndHistory()
     QVERIFY(UserState::isFavorite(article.source, article.id));
     UserState::setFavorite(article, false);
     QVERIFY(UserState::favorites().isEmpty());
+    UserState::recordVisit(article);
+    Article broken = article;
+    broken.source.clear();
+    broken.headword = QStringLiteral("garbled");
+    UserState::setFavorite(broken, true);
+    const auto repaired = UserState::favorites();
+    QCOMPARE(repaired.size(), 1);
+    QCOMPARE(repaired.first().source, article.source);
+    QCOMPARE(repaired.first().headword, article.headword);
+    UserState::setFavorite(article, false);
     QFile::remove(UserState::databasePath());
 }
 

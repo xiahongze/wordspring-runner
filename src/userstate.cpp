@@ -36,6 +36,22 @@ QVector<SavedEntry> list(const char *table, const QString &filter)
     QVector<SavedEntry> result;
     Connection connection;
     if (!connection.db) return result;
+    if (qstrcmp(table, "favorites") == 0) {
+        // Older article windows could save an empty source and damaged headword.
+        // Recover only entries with a single unambiguous history match.
+        sqlite3_exec(connection.db,
+            "BEGIN;"
+            "INSERT OR IGNORE INTO favorites(source,entry_id,headword,dictionary,added_at) "
+            "SELECT h.source,h.entry_id,h.headword,h.dictionary,f.added_at FROM favorites f "
+            "JOIN history h ON h.entry_id=f.entry_id AND h.dictionary=f.dictionary "
+            "WHERE f.source='' AND h.source<>'' AND "
+            "(SELECT COUNT(*) FROM history h2 WHERE h2.entry_id=f.entry_id AND h2.dictionary=f.dictionary)=1;"
+            "DELETE FROM favorites WHERE source='' AND EXISTS "
+            "(SELECT 1 FROM history h WHERE h.entry_id=favorites.entry_id AND h.dictionary=favorites.dictionary "
+            "AND h.source<>'' AND (SELECT COUNT(*) FROM history h2 WHERE h2.entry_id=favorites.entry_id "
+            "AND h2.dictionary=favorites.dictionary)=1);"
+            "COMMIT;", nullptr, nullptr, nullptr);
+    }
     const QByteArray sql = QByteArray("SELECT source,entry_id,headword,dictionary,") + (qstrcmp(table, "history") == 0 ? "viewed_at" : "added_at")
         + " FROM " + table + " WHERE headword LIKE ?1 OR dictionary LIKE ?1 ORDER BY "
         + (qstrcmp(table, "history") == 0 ? "viewed_at" : "added_at") + " DESC LIMIT 500";

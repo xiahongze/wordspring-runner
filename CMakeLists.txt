@@ -34,12 +34,16 @@ set_target_properties(wordspring_settings PROPERTIES POSITION_INDEPENDENT_CODE O
 target_link_libraries(wordspring_settings PUBLIC wordspring_core Qt6::Widgets KF6::I18n)
 target_compile_definitions(wordspring_settings PRIVATE WORDSPRING_SOURCE_IMPORTER="${CMAKE_SOURCE_DIR}/importer/import_dictionary.py")
 
+add_library(wordspring_view STATIC src/articlewindow.cpp src/articlewindow.h)
+set_target_properties(wordspring_view PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_link_libraries(wordspring_view PUBLIC wordspring_core Qt6::Widgets KF6::I18n)
+
 kcoreaddons_add_plugin(kcm_krunner_wordspring SOURCES src/kcm.cpp INSTALL_NAMESPACE "kf6/krunner/kcms")
 set_target_properties(kcm_krunner_wordspring PROPERTIES PREFIX "")
 target_link_libraries(kcm_krunner_wordspring PRIVATE wordspring_settings KF6::KCMUtils)
 
 add_executable(wordspring src/main.cpp)
-target_link_libraries(wordspring PRIVATE wordspring_settings Qt6::Widgets KF6::I18n)
+target_link_libraries(wordspring PRIVATE wordspring_settings wordspring_view Qt6::Widgets KF6::I18n)
 install(TARGETS wordspring RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES importer/import_dictionary.py DESTINATION ${CMAKE_INSTALL_DATADIR}/wordspring)
 
@@ -47,6 +51,10 @@ if(BUILD_TESTING)
   add_executable(store_test tests/store_test.cpp)
   target_link_libraries(store_test PRIVATE wordspring_core Qt6::Test)
   add_test(NAME store_test COMMAND store_test)
+  add_executable(articlewindow_test tests/articlewindow_test.cpp)
+  target_link_libraries(articlewindow_test PRIVATE wordspring_view Qt6::Test)
+  add_test(NAME articlewindow_test COMMAND articlewindow_test)
+  set_tests_properties(articlewindow_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
   add_executable(plugin_test tests/plugin_test.cpp)
   target_link_libraries(plugin_test PRIVATE Qt6::Core)
   target_compile_definitions(plugin_test PRIVATE WORDSPRING_RUNNER_PLUGIN="$<TARGET_FILE:krunner_wordspring>" WORDSPRING_KCM_PLUGIN="$<TARGET_FILE:kcm_krunner_wordspring>")
