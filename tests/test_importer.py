@@ -66,12 +66,29 @@ class ImporterTest(unittest.TestCase):
     def test_japanese_translation_and_examples_have_separate_blocks(self):
         html = ('<span class="hwg"><span class="hw">猫</span></span>'
                 '<span class="gramb"><span class="trgg"><span class="trg" d:def="1">a cat</span></span>'
-                '<span class="exg"><span class="ex">三毛猫</span> calico cat</span></span>')
+                '<span class="exg"><span class="ex">三毛猫</span><span class="trg">calico cat</span></span></span>'
+                '<span class="box"><span class="title">語法のポイント</span><span class="np">Use a person as subject.</span></span>')
         cleaned, _preview = module.clean_definition(html, True)
         self.assertIn('class="ws-head"', cleaned)
         self.assertIn('class="ws-translation-group"', cleaned)
         self.assertIn('class="ws-example-row"', cleaned)
+        self.assertIn('class="ws-example-translation"', cleaned)
+        self.assertIn('<table class="ws-note-box"', cleaned)
+        self.assertIn('class="ws-note-title"', cleaned)
         self.assertEqual(module.extract_meanings(html, True, "fallback"), "a cat")
+
+    def test_apple_headword_notes_and_sense_numbers_follow_apple_layout(self):
+        html = ('<span class="hwg"><span class="hw">happy</span>'
+                '<span class="hgSub1"><span class="etym">origin</span><span class="u">happily</span></span></span>'
+                '<span class="semb"><span class="sn">1 </span><span class="trgg"><span class="trg" d:def="1">glad'
+                '<span class="grnote">(<span class="lbl">!</span>usage)</span></span></span>'
+                '<span class="exg"><span class="con">be happy to do</span><span class="trg">translation</span></span></span>')
+        cleaned, _preview = module.clean_definition(html, True)
+        self.assertIn('</h1><div class="ws-head-sub"><p>origin</p><p>happily</p></div>', cleaned)
+        self.assertIn('<span class="ws-number">1 </span><span class="ws-translation-group">', cleaned)
+        self.assertIn('<span class="ws-note-mark">\u00a0!\u00a0</span> ', cleaned)
+        self.assertIn('<strong class="ws-construction">be happy to do</strong>', cleaned)
+        self.assertEqual(cleaned.count("</h1>"), 1)
 
     def test_failed_import_preserves_existing_database(self):
         with tempfile.TemporaryDirectory() as directory:

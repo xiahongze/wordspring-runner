@@ -16,8 +16,8 @@ import tempfile
 
 
 class CleanHTML(HTMLParser):
-    ALLOWED = {"div", "p", "br", "b", "strong", "i", "em", "u", "ul", "ol", "li", "span", "sup", "sub", "blockquote", "h1", "h2", "h3", "a", "hr"}
-    BLOCK = {"div", "p", "br", "li", "blockquote", "h1", "h2", "h3"}
+    ALLOWED = {"div", "p", "br", "b", "strong", "i", "em", "u", "ul", "ol", "li", "span", "sup", "sub", "blockquote", "h1", "h2", "h3", "a", "hr", "table"}
+    BLOCK = {"div", "p", "br", "li", "blockquote", "h1", "h2", "h3", "table"}
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
@@ -33,19 +33,35 @@ class CleanHTML(HTMLParser):
             return
         if self.suppress:
             return
-        classes = next((v.split() for k, v in attrs if k == "class"), [])
+        attributes = dict(attrs)
+        classes = attributes.get("class", "").split()
+        in_example = any(item[3] == "ws-example-row" for item in self.stack)
+        in_box = any(item[3] == "ws-note-box" for item in self.stack)
+        in_head_sub = any(item[3] == "ws-head-sub" for item in self.stack)
+        in_grammar_note = any(item[3] == "ws-qualifier" for item in self.stack)
         rendered = tag
         style_class = ""
         if tag == "span":
             if "hg" in classes or "hwg" in classes:
                 rendered, style_class = "h1", "ws-head"
+            elif "hgSub1" in classes and self.stack and self.stack[-1][3] == "ws-head":
+                # Apple keeps etymology inside the headword group; end the heading so it reads at body size.
+                self.html.append("</h1>")
+                self.stack[-1] = (self.stack[-1][0], "", False, "")
+                rendered, style_class = "div", "ws-head-sub"
+            elif ("etym" in classes or "u" in classes) and in_head_sub:
+                rendered = "p"
+            elif "con" in classes:
+                rendered, style_class = ("strong", "ws-construction") if in_example else ("span", "ws-qualifier")
+            elif "lbl" in classes and in_grammar_note:
+                style_class = "ws-note-mark"
             elif "hw" in classes:
                 style_class = "ws-word"
             elif "pr" in classes or "prx" in classes:
                 style_class = "ws-pron"
             elif "posg" in classes:
                 rendered, style_class = "p", "ws-pos"
-            elif "pos" in classes:
+            elif "pos" in classes or "ps" in classes:
                 style_class = "ws-posname"
             elif "se2" in classes:
                 rendered, style_class = "div", "ws-sense"
@@ -56,11 +72,19 @@ class CleanHTML(HTMLParser):
             elif "semb" in classes:
                 rendered, style_class = "div", "ws-sense"
             elif "trgg" in classes:
-                rendered, style_class = "div", "ws-translation-group"
+                rendered, style_class = "span", "ws-translation-group"
             elif "exg" in classes:
-                rendered, style_class = "p", "ws-example-row"
-            elif "trg" in classes and dict(attrs).get("d:def") == "1":
+                rendered, style_class = "div", "ws-example-row"
+            elif "trg" in classes and in_example:
+                rendered, style_class = "p", "ws-example-translation"
+            elif "trg" in classes and attributes.get("d:def") == "1":
                 rendered, style_class = "strong", "ws-definition"
+            elif "box" in classes:
+                rendered, style_class = "table", "ws-note-box"
+            elif "title" in classes and in_box:
+                rendered, style_class = "p", "ws-note-title"
+            elif "np" in classes and in_box:
+                rendered, style_class = "p", "ws-note-line"
             elif "msDict" in classes:
                 if "t_subsense" in classes:
                     rendered, style_class = "p", "ws-subsense"
@@ -98,12 +122,15 @@ class CleanHTML(HTMLParser):
                     rendered = "span"
             else:
                 class_attribute = f' class="{style_class}"' if style_class else ""
-                self.html.append(f"<{rendered}{class_attribute}>")
+                if style_class == "ws-note-box":
+                    self.html.append('<table class="ws-note-box" width="100%" border="1" cellspacing="0" cellpadding="12"><tr><td>')
+                else:
+                    self.html.append(f"<{rendered}{class_attribute}>")
             if rendered not in {"br", "hr"}:
-                self.stack.append((tag, rendered, style_class == "ws-section-title"))
+                self.stack.append((tag, rendered, style_class == "ws-section-title", style_class))
         elif tag in self.BLOCK:
             self.html.append("<p>")
-            self.stack.append((tag, "p", False))
+            self.stack.append((tag, "p", False, ""))
 
     def handle_endtag(self, tag):
         tag = tag.rsplit(":", 1)[-1].lower()
@@ -115,21 +142,32 @@ class CleanHTML(HTMLParser):
         if tag in self.BLOCK:
             self.plain.append(" ")
         if self.stack and tag == self.stack[-1][0]:
-            _, rendered, add_rule = self.stack.pop()
-            self.html.append(f"</{rendered}>")
+            _, rendered, add_rule, style_class = self.stack.pop()
+            self.html.append(self.closing(rendered, style_class))
             if add_rule:
                 self.html.append("<hr>")
+
+    @staticmethod
+    def closing(rendered, style_class):
+        if style_class == "ws-note-box":
+            return "</td></tr></table>"
+        if style_class == "ws-note-mark":
+            return "</span> "
+        return f"</{rendered}>" if rendered else ""
 
     def handle_data(self, data):
         if self.suppress:
             return
-        self.html.append(escape(data))
+        if self.stack and self.stack[-1][3] == "ws-note-mark":
+            self.html.append(f"\u00a0{escape(data.strip())}\u00a0")
+        else:
+            self.html.append(escape(data))
         self.plain.append(data)
 
     def finish(self):
         while self.stack:
-            _, rendered, add_rule = self.stack.pop()
-            self.html.append(f"</{rendered}>")
+            _, rendered, add_rule, style_class = self.stack.pop()
+            self.html.append(self.closing(rendered, style_class))
             if add_rule:
                 self.html.append("<hr>")
         return "".join(self.html), " ".join("".join(self.plain).split())
@@ -142,6 +180,7 @@ class MeaningCollector(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.depth = 0
         self.active = []
+        self.example_depths = []
         self.primary = []
         self.definitions = []
         self.translations = []
@@ -151,10 +190,12 @@ class MeaningCollector(HTMLParser):
         self.depth += 1
         attributes = dict(attrs)
         classes = attributes.get("class", "").split()
+        if "exg" in classes:
+            self.example_depths.append(self.depth)
         if "df" in classes:
             kind = "primary" if attributes.get("d:def") == "1" else "definitions"
             self.active.append((self.depth, kind, []))
-        elif "trg" in classes:
+        elif "trg" in classes and not self.example_depths:
             self.active.append((self.depth, "translations", []))
         elif tag in {"p", "li"}:
             self.active.append((self.depth, "blocks", []))
@@ -171,6 +212,8 @@ class MeaningCollector(HTMLParser):
                 if value:
                     getattr(self, kind).append(value)
                 self.active.remove(capture)
+        if self.example_depths and self.example_depths[-1] == self.depth:
+            self.example_depths.pop()
         self.depth = max(0, self.depth - 1)
 
 

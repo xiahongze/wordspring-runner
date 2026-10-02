@@ -13,7 +13,7 @@ The screenshots use synthetic entries. No dictionary data is included in the rep
 - Import original macOS `.dictionary` bundles directly, or StarDict `.ifo` files with their companion `.idx`, `.dict` or `.dict.dz`, and optional `.syn` files.
 - Add a folder to discover multiple dictionary bundles and StarDict files. Enable, disable, reorder, reimport, or remove sources in settings. Each source has an editable short label for KRunner; for example, Oxford Dictionary of English defaults to **ODE**.
 - Keep an indexed SQLite copy of each dictionary in your XDG data directory. Lookup opens only the enabled databases and never runs the importer.
-- Use the Apple bundle's semantic markup to distinguish headwords, pronunciation, parts of speech, numbered senses, examples, phrases, and origins. Original Apple CSS, audio, and embedded images are not included.
+- Use the Apple bundle's semantic markup to distinguish headwords, pronunciation, parts of speech, numbered senses, examples, phrases, and origins. Bilingual dictionaries show each example translation on its own line, and usage notes such as WISDOM's grammar points appear in a box. Original Apple CSS, audio, and embedded images are not included.
 - Use the bookmark icon in the article window; the settings icon opens preferences. The **Bookmarks & History** page lets you filter and reopen saved words, remove bookmarks, and clear lookup history without removing bookmarks.
 
 ## Requirements
@@ -58,7 +58,7 @@ Use `define run` in KRunner. Selecting a result opens the full entry. Click an i
 
 Imported databases live at `$XDG_DATA_HOME/wordspring/dictionaries/` (usually `~/.local/share/wordspring/dictionaries/`). Bookmarks and recently opened entries live in `$XDG_DATA_HOME/wordspring/state.sqlite`; history is capped at 500 distinct entries. Settings live in `wordspringrc` under the XDG config directory. Reimport replaces a database atomically; a failed import leaves the previous copy available. Removing a source deletes its imported copy but never touches the original dictionary.
 
-On the development machine, the supplied Oxford Dictionary of English produced 114,925 entries and the WISDOM English–Japanese/Japanese–English bundle produced 95,174 entries. A repeated exact lookup of `run` took about 0.14 ms median with a warm filesystem cache. These numbers are local measurements, not a cross-machine guarantee. Import is a one-time operation; large dictionaries can take tens of seconds. The Apple parser keeps key and cross-reference indexes in memory while importing, but the runtime plugin never loads the whole dictionary.
+On the development machine, the supplied Oxford Dictionary of English produced 114,925 entries and the WISDOM English–Japanese/Japanese–English bundle produced 95,174 entries, and the Oxford Chinese–English bundle produced 136,120 entries. A repeated exact lookup of `run` took about 0.14 ms median with a warm filesystem cache. These numbers are local measurements, not a cross-machine guarantee. Import is a one-time operation; large dictionaries can take tens of seconds. The Apple parser keeps key and cross-reference indexes in memory while importing, but the runtime plugin never loads the whole dictionary.
 
 ## Development
 

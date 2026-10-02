@@ -96,15 +96,23 @@ ArticleWindow::ArticleWindow(QWidget *parent) : QWidget(parent)
         "body { font-size: 12pt; line-height: 135%; }"
         ".ws-head { font-family: serif; font-size: 22pt; font-weight: bold; margin-top: 2px; margin-bottom: 9px; }"
         ".ws-word { font-weight: bold; }"
+        ".ws-head-sub { font-size: 11pt; margin-top: -4px; margin-bottom: 8px; }"
+        ".ws-head-sub p { margin-top: 0px; margin-bottom: 1px; }"
         ".ws-pron { font-family: sans-serif; font-size: 11pt; font-weight: normal; color: %1; }"
         ".ws-pos { color: %1; font-size: 11pt; margin-top: 5px; margin-bottom: 9px; }"
         ".ws-posname { font-weight: bold; }"
         ".ws-sense { margin-top: 7px; margin-bottom: 5px; }"
         ".ws-translation-group { margin-top: 4px; margin-bottom: 4px; }"
         ".ws-example-row { margin-left: 18px; margin-top: 3px; margin-bottom: 3px; }"
+        ".ws-example-translation { margin-left: 20px; margin-top: 1px; margin-bottom: 5px; }"
+        ".ws-note-box { margin-top: 12px; margin-bottom: 12px; }"
+        ".ws-note-title { font-weight: bold; margin-top: 2px; margin-bottom: 7px; }"
+        ".ws-note-line { margin-top: 3px; margin-bottom: 3px; }"
         ".ws-number, .ws-qualifier { color: %1; }"
+        ".ws-note-mark { background-color: %1; color: %2; font-weight: bold; }"
         ".ws-definition { font-weight: bold; }"
         ".ws-example { color: %1; font-style: italic; }"
+        ".ws-construction { color: %1; }"
         ".ws-subsense { margin-left: 20px; margin-top: 2px; margin-bottom: 2px; }"
         ".ws-section { margin-top: 16px; }"
         ".ws-section-title { color: %1; font-size: 9pt; font-weight: bold; margin-top: 8px; margin-bottom: 8px; }"
@@ -112,7 +120,7 @@ ArticleWindow::ArticleWindow(QWidget *parent) : QWidget(parent)
         ".ws-phrase-head { font-weight: bold; }"
         ".ws-phrase-definition { margin-left: 12px; margin-top: 2px; margin-bottom: 4px; }"
         "a { text-decoration: none; }"
-    ).arg(muted));
+    ).arg(muted, baseColor.name()));
     layout->addWidget(m_body);
 
     connect(m_bookmark, &QToolButton::clicked, this, [this](bool checked) {
