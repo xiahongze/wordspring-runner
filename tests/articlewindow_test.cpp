@@ -10,6 +10,7 @@
 #include <QUrl>
 #include <QtTest>
 #include <sqlite3.h>
+#include <algorithm>
 
 class ArticleWindowTest : public QObject {
     Q_OBJECT
@@ -47,6 +48,7 @@ void ArticleWindowTest::bookmarkAndLinkedEntry()
     QVERIFY(preferences->text().isEmpty());
     QVERIFY(!bookmark->icon().isNull());
     QVERIFY(!preferences->icon().isNull());
+    QVERIFY(preferences->toolTip().contains(QStringLiteral("Preferences")));
     bookmark->click();
     const auto saved = UserState::favorites();
     QCOMPARE(saved.size(), 1);
@@ -58,8 +60,15 @@ void ArticleWindowTest::bookmarkAndLinkedEntry()
     QVERIFY(QMetaObject::invokeMethod(body, "anchorClicked", Qt::DirectConnection, Q_ARG(QUrl, link)));
     QCOMPARE(window.currentArticle().headword, QStringLiteral("猫"));
     QVERIFY(body->toPlainText().contains(QStringLiteral("猫 means cat")));
+    bookmark->click();
+    const auto savedAfterNavigation = UserState::favorites();
+    QCOMPARE(savedAfterNavigation.size(), 2);
+    QVERIFY(std::any_of(savedAfterNavigation.cbegin(), savedAfterNavigation.cend(), [](const SavedEntry &entry) {
+        return entry.headword == QStringLiteral("猫") && !entry.source.isEmpty();
+    }));
     QCOMPARE(UserState::history().size(), 2);
     UserState::setFavorite(Store::article(source, 1), false);
+    UserState::setFavorite(Store::article(source, 2), false);
     UserState::clearHistory();
     QFile::remove(path);
     QFile::remove(UserState::databasePath());

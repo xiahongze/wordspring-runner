@@ -1,8 +1,8 @@
 # Wordspring Runner
 
-An offline dictionary lookup plugin for Plasma 6 KRunner. Type `define word` to see up to four short meanings from each enabled dictionary; press Enter to read the full entry in a styled article window. Save favorite entries and revisit recent lookups from settings. The trigger word is configurable.
+An offline dictionary lookup plugin for Plasma 6 KRunner. Type `define word` to see up to four short meanings from each enabled dictionary; press Enter to read the full entry in a styled article window. Bookmark entries and revisit recent lookups from settings. The trigger word is configurable.
 
-| Article | Dictionaries | Favorites and history |
+| Article | Dictionaries | Bookmarks and history |
 | --- | --- | --- |
 | ![Wordspring article window, using synthetic dictionary content](docs/screenshots/wordspring-article.png) | ![Wordspring dictionary settings, using synthetic dictionary names](docs/screenshots/wordspring-settings.png) | ![Wordspring saved words settings, using synthetic entries](docs/screenshots/wordspring-activity.png) |
 
@@ -14,7 +14,7 @@ The screenshots use synthetic entries. No dictionary data is included in the rep
 - Add a folder to discover multiple dictionary bundles and StarDict files. Enable, disable, reorder, reimport, or remove sources in settings. Each source has an editable short label for KRunner; for example, Oxford Dictionary of English defaults to **ODE**.
 - Keep an indexed SQLite copy of each dictionary in your XDG data directory. Lookup opens only the enabled databases and never runs the importer.
 - Use the Apple bundle's semantic markup to distinguish headwords, pronunciation, parts of speech, numbered senses, examples, phrases, and origins. Original Apple CSS, audio, and embedded images are not included.
-- Star an entry in the article window. The **Favorites & History** page lets you filter and reopen saved words, remove favorites, and clear lookup history independently of favorites.
+- Use the bookmark icon in the article window; the settings icon opens preferences. The **Bookmarks & History** page lets you filter and reopen saved words, remove bookmarks, and clear lookup history without removing bookmarks.
 
 ## Requirements
 
@@ -56,9 +56,9 @@ Use `define run` in KRunner. Selecting a result opens the full entry. Click an i
 
 ## Data and performance
 
-Imported databases live at `$XDG_DATA_HOME/wordspring/dictionaries/` (usually `~/.local/share/wordspring/dictionaries/`). Favorites and recently opened entries live in `$XDG_DATA_HOME/wordspring/state.sqlite`; history is capped at 500 distinct entries. Settings live in `wordspringrc` under the XDG config directory. Reimport replaces a database atomically; a failed import leaves the previous copy available. Removing a source deletes its imported copy but never touches the original dictionary.
+Imported databases live at `$XDG_DATA_HOME/wordspring/dictionaries/` (usually `~/.local/share/wordspring/dictionaries/`). Bookmarks and recently opened entries live in `$XDG_DATA_HOME/wordspring/state.sqlite`; history is capped at 500 distinct entries. Settings live in `wordspringrc` under the XDG config directory. Reimport replaces a database atomically; a failed import leaves the previous copy available. Removing a source deletes its imported copy but never touches the original dictionary.
 
-On the development machine, the supplied Oxford Dictionary of English produced 114,925 entries and a 144 MB SQLite file. A repeated exact lookup of `run` took about 0.14 ms median with a warm filesystem cache. These numbers are local measurements, not a cross-machine guarantee. Import is a one-time operation; large dictionaries can take tens of seconds. The Apple parser keeps key and cross-reference indexes in memory while importing, but the runtime plugin never loads the whole dictionary.
+On the development machine, the supplied Oxford Dictionary of English produced 114,925 entries and the WISDOM English–Japanese/Japanese–English bundle produced 95,174 entries. A repeated exact lookup of `run` took about 0.14 ms median with a warm filesystem cache. These numbers are local measurements, not a cross-machine guarantee. Import is a one-time operation; large dictionaries can take tens of seconds. The Apple parser keeps key and cross-reference indexes in memory while importing, but the runtime plugin never loads the whole dictionary.
 
 ## Development
 
@@ -68,7 +68,7 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-The C++ test checks indexed, Unicode, enabled-source lookup and the independent favorite/history state. The Python test builds a tiny StarDict fixture and checks synonym import, HTML filtering, and Apple-style structure. The importer can also be run directly:
+The C++ tests check indexed, Unicode, enabled-source lookup, bookmark and history persistence, article controls, and linked-entry navigation. The Python test builds a tiny StarDict fixture and checks synonym import, HTML filtering, and Apple-style structure. The importer can also be run directly:
 
 ```bash
 python importer/import_dictionary.py --input /path/to/dictionary.ifo --output /tmp/example.sqlite
