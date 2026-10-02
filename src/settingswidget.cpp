@@ -101,6 +101,7 @@ void SettingsWidget::load()
     m_trigger->setText(Store::trigger());
     m_python->setText(Store::pythonExecutable());
     m_items = Store::dictionaries();
+    m_pendingRemoval.clear();
     refreshTable();
 }
 
@@ -111,6 +112,8 @@ void SettingsWidget::save()
     Store::setTrigger(trigger);
     Store::setPythonExecutable(m_python->text().trimmed().isEmpty() ? QStringLiteral("python3") : m_python->text().trimmed());
     Store::setDictionaries(m_items);
+    for (const auto &source : m_pendingRemoval) QFile::remove(Store::databasePath(source));
+    m_pendingRemoval.clear();
     m_status->setText(i18nd("wordspring-runner", "Settings saved."));
 }
 
@@ -137,6 +140,7 @@ void SettingsWidget::addSource(const QString &path)
     if (canonical.isEmpty()) return;
     if (canonical.endsWith(QStringLiteral(".dictionary")) || canonical.endsWith(QStringLiteral(".ifo"))) {
         for (const auto &item : m_items) if (item.source == canonical) return;
+        m_pendingRemoval.removeAll(canonical);
         m_items.push_back({canonical, QFileInfo(canonical).completeBaseName(), true});
         m_queue.append(canonical);
         refreshTable();
@@ -199,7 +203,7 @@ void SettingsWidget::removeSelected()
     const auto selected = m_items[row].source;
     m_queue.removeAll(selected);
     if (selected == m_importing && m_process) m_process->kill();
-    QFile::remove(Store::databasePath(selected));
+    m_pendingRemoval.append(selected);
     m_items.removeAt(row);
     refreshTable();
     emit modified();

@@ -29,6 +29,7 @@ private:
     QLabel *m_help;
     QVector<DictionaryInfo> m_items;
     QStringList m_queue;
+    QStringList m_pendingRemoval;
     QProcess *m_process = nullptr;
     QString m_importing;
     QByteArray m_outputBuffer;
