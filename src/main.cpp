@@ -1,5 +1,6 @@
 #include "settingswidget.h"
 #include "store.h"
+#include <KLocalizedString>
 
 #include <QApplication>
 #include <QCommandLineParser>
@@ -7,28 +8,30 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QTextBrowser>
+#include <QTimer>
 #include <QUrl>
 #include <QVBoxLayout>
 
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
-    app.setApplicationName(QStringLiteral("Wordspring Runner"));
+    app.setApplicationName(i18nd("wordspring-runner", "Wordspring Runner"));
     QCommandLineParser parser;
     parser.addHelpOption();
-    parser.addOption({QStringLiteral("settings"), QStringLiteral("Open dictionary settings")});
-    parser.addOption({QStringLiteral("source"), QStringLiteral("Dictionary source"), QStringLiteral("path")});
-    parser.addOption({QStringLiteral("entry"), QStringLiteral("Entry ID"), QStringLiteral("id")});
+    parser.addOption({QStringLiteral("settings"), i18nd("wordspring-runner", "Open dictionary settings")});
+    parser.addOption({QStringLiteral("source"), i18nd("wordspring-runner", "Dictionary source"), QStringLiteral("path")});
+    parser.addOption({QStringLiteral("entry"), i18nd("wordspring-runner", "Entry ID"), QStringLiteral("id")});
+    parser.addOption({QStringLiteral("screenshot"), i18nd("wordspring-runner", "Save a screenshot and exit"), QStringLiteral("file")});
     parser.process(app);
 
     QWidget window;
-    window.setWindowTitle(QStringLiteral("Wordspring Runner"));
+    window.setWindowTitle(i18nd("wordspring-runner", "Wordspring Runner"));
     window.resize(650, 520);
     auto *layout = new QVBoxLayout(&window);
     if (parser.isSet(QStringLiteral("settings")) || !parser.isSet(QStringLiteral("entry"))) {
         auto *settings = new SettingsWidget(&window);
         layout->addWidget(settings);
-        auto *save = new QPushButton(QStringLiteral("Save settings"), &window);
+        auto *save = new QPushButton(i18nd("wordspring-runner", "Save settings"), &window);
         layout->addWidget(save);
         QObject::connect(save, &QPushButton::clicked, settings, &SettingsWidget::save);
     } else {
@@ -48,7 +51,7 @@ int main(int argc, char **argv)
             headword->setText(article.headword);
             source->setText(article.dictionary);
             body->setHtml(QStringLiteral("<html><head><style>body{font-size:12pt;line-height:1.5}p{margin:0 0 0.8em}blockquote{margin-left:1em;color:gray}</style></head><body>") + article.html + QStringLiteral("</body></html>"));
-            window.setWindowTitle(article.headword + QStringLiteral(" — Wordspring Runner"));
+            window.setWindowTitle(i18nd("wordspring-runner", "%1 — Wordspring Runner", article.headword));
         };
         show(Store::article(parser.value(QStringLiteral("source")), parser.value(QStringLiteral("entry")).toLongLong()));
         QObject::connect(body, &QTextBrowser::anchorClicked, &window, [=](const QUrl &url) {
@@ -59,5 +62,11 @@ int main(int argc, char **argv)
         });
     }
     window.show();
+    if (parser.isSet(QStringLiteral("screenshot"))) {
+        QTimer::singleShot(250, &window, [&] {
+            window.grab().save(parser.value(QStringLiteral("screenshot")));
+            app.quit();
+        });
+    }
     return app.exec();
 }

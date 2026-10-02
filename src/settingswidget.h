@@ -26,6 +26,7 @@ private:
     QLineEdit *m_python;
     QTableWidget *m_table;
     QLabel *m_status;
+    QLabel *m_help;
     QVector<DictionaryInfo> m_items;
     QStringList m_queue;
     QProcess *m_process = nullptr;

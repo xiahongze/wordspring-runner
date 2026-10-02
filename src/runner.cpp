@@ -2,6 +2,7 @@
 #include "store.h"
 
 #include <KPluginFactory>
+#include <KLocalizedString>
 #include <KRunner/QueryMatch>
 #include <KRunner/RunnerContext>
 #include <QProcess>
@@ -18,7 +19,7 @@ void WordspringRunner::reloadConfiguration()
     m_trigger = Store::trigger().trimmed();
     if (m_trigger.isEmpty()) m_trigger = QStringLiteral("define");
     setSyntaxes({});
-    addSyntax(m_trigger + QStringLiteral(" :q:"), QStringLiteral("Look up a word in enabled dictionaries"));
+    addSyntax(m_trigger + QStringLiteral(" :q:"), i18nd("wordspring-runner", "Look up a word in enabled dictionaries"));
 }
 
 void WordspringRunner::match(KRunner::RunnerContext &context)

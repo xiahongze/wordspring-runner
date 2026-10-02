@@ -37,6 +37,21 @@ class ImporterTest(unittest.TestCase):
         self.assertNotIn("https://", html)
         self.assertIn("word", preview)
 
+    def test_typed_stardict_record(self):
+        parts = module.stardict_definition(b"mA small definition\0h<b>bold</b>\0", "")
+        self.assertEqual(parts, [("A small definition", False), ("<b>bold</b>", True)])
+
+    def test_failed_import_preserves_existing_database(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "old.sqlite"
+            output.write_bytes(b"existing data")
+            source = root / "broken.ifo"
+            source.write_text("not a StarDict file")
+            result = subprocess.run([sys.executable, str(SCRIPT), "--input", str(source), "--output", str(output)], capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(output.read_bytes(), b"existing data")
+
 
 if __name__ == "__main__":
     unittest.main()

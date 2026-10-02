@@ -1,4 +1,5 @@
 #include "settingswidget.h"
+#include <KLocalizedString>
 
 #include <QDir>
 #include <QDirIterator>
@@ -13,6 +14,7 @@
 #include <QLineEdit>
 #include <QProcess>
 #include <QPushButton>
+#include <QRegularExpressionValidator>
 #include <QSignalBlocker>
 #include <QStandardPaths>
 #include <QTableWidget>
@@ -24,16 +26,18 @@ SettingsWidget::SettingsWidget(QWidget *parent) : QWidget(parent)
     auto *form = new QFormLayout;
     m_trigger = new QLineEdit(this);
     m_trigger->setPlaceholderText(QStringLiteral("define"));
-    form->addRow(QStringLiteral("KRunner keyword:"), m_trigger);
+    m_trigger->setValidator(new QRegularExpressionValidator(QRegularExpression(QStringLiteral("\\S+")), m_trigger));
+    form->addRow(i18nd("wordspring-runner", "KRunner keyword:"), m_trigger);
     m_python = new QLineEdit(this);
     m_python->setPlaceholderText(QStringLiteral("python3"));
-    form->addRow(QStringLiteral("Import Python:"), m_python);
+    form->addRow(i18nd("wordspring-runner", "Import Python:"), m_python);
     layout->addLayout(form);
-    layout->addWidget(new QLabel(QStringLiteral("Type “define word” in KRunner. Add dictionary bundles or a folder containing them."), this));
+    m_help = new QLabel(this);
+    layout->addWidget(m_help);
 
     m_table = new QTableWidget(this);
     m_table->setColumnCount(2);
-    m_table->setHorizontalHeaderLabels({QStringLiteral("Enabled"), QStringLiteral("Dictionary")});
+    m_table->setHorizontalHeaderLabels({i18nd("wordspring-runner", "Enabled"), i18nd("wordspring-runner", "Dictionary")});
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -46,16 +50,16 @@ SettingsWidget::SettingsWidget(QWidget *parent) : QWidget(parent)
         buttons->addWidget(button);
         connect(button, &QPushButton::clicked, this, action);
     };
-    addButton(QStringLiteral("Add Apple bundle"), [this] {
-        const auto path = QFileDialog::getExistingDirectory(this, QStringLiteral("Choose .dictionary bundle"));
+    addButton(i18nd("wordspring-runner", "Add Apple bundle"), [this] {
+        const auto path = QFileDialog::getExistingDirectory(this, i18nd("wordspring-runner", "Choose .dictionary bundle"));
         if (!path.isEmpty()) addSource(path);
     });
-    addButton(QStringLiteral("Add folder"), [this] {
-        const auto path = QFileDialog::getExistingDirectory(this, QStringLiteral("Choose dictionary folder"));
+    addButton(i18nd("wordspring-runner", "Add folder"), [this] {
+        const auto path = QFileDialog::getExistingDirectory(this, i18nd("wordspring-runner", "Choose dictionary folder"));
         if (!path.isEmpty()) addSource(path);
     });
-    addButton(QStringLiteral("Add StarDict"), [this] {
-        const auto path = QFileDialog::getOpenFileName(this, QStringLiteral("Choose StarDict .ifo"), {}, QStringLiteral("StarDict (*.ifo)"));
+    addButton(i18nd("wordspring-runner", "Add StarDict"), [this] {
+        const auto path = QFileDialog::getOpenFileName(this, i18nd("wordspring-runner", "Choose StarDict .ifo"), {}, i18nd("wordspring-runner", "StarDict (*.ifo)"));
         if (!path.isEmpty()) addSource(path);
     });
     layout->addLayout(buttons);
@@ -66,19 +70,22 @@ SettingsWidget::SettingsWidget(QWidget *parent) : QWidget(parent)
         manage->addWidget(button);
         connect(button, &QPushButton::clicked, this, action);
     };
-    manageButton(QStringLiteral("Reimport"), [this] {
+    manageButton(i18nd("wordspring-runner", "Reimport"), [this] {
         const int row = m_table->currentRow();
         if (row >= 0 && row < m_items.size()) { m_queue.append(m_items[row].source); importNext(); }
     });
-    manageButton(QStringLiteral("Remove"), [this] { removeSelected(); });
-    manageButton(QStringLiteral("Move up"), [this] { moveSelected(-1); });
-    manageButton(QStringLiteral("Move down"), [this] { moveSelected(1); });
+    manageButton(i18nd("wordspring-runner", "Remove"), [this] { removeSelected(); });
+    manageButton(i18nd("wordspring-runner", "Move up"), [this] { moveSelected(-1); });
+    manageButton(i18nd("wordspring-runner", "Move down"), [this] { moveSelected(1); });
     manage->addStretch();
     layout->addLayout(manage);
     m_status = new QLabel(this);
     m_status->setWordWrap(true);
     layout->addWidget(m_status);
-    connect(m_trigger, &QLineEdit::textChanged, this, &SettingsWidget::modified);
+    connect(m_trigger, &QLineEdit::textChanged, this, [this](const QString &trigger) {
+        m_help->setText(i18nd("wordspring-runner", "Type “%1 word” in KRunner. Add dictionary bundles or a folder containing them.", trigger));
+        emit modified();
+    });
     connect(m_python, &QLineEdit::textChanged, this, &SettingsWidget::modified);
     connect(m_table, &QTableWidget::itemChanged, this, [this](QTableWidgetItem *item) {
         if (item->column() == 0 && item->row() < m_items.size()) {
@@ -99,15 +106,12 @@ void SettingsWidget::load()
 
 void SettingsWidget::save()
 {
-    const auto trigger = m_trigger->text().trimmed();
-    if (trigger.isEmpty() || trigger.contains(QLatin1Char(' '))) {
-        m_status->setText(QStringLiteral("Keyword must be one word without spaces."));
-        return;
-    }
+    const auto trigger = m_trigger->text().trimmed().isEmpty() ? QStringLiteral("define") : m_trigger->text().trimmed();
+    m_trigger->setText(trigger);
     Store::setTrigger(trigger);
     Store::setPythonExecutable(m_python->text().trimmed().isEmpty() ? QStringLiteral("python3") : m_python->text().trimmed());
     Store::setDictionaries(m_items);
-    m_status->setText(QStringLiteral("Settings saved."));
+    m_status->setText(i18nd("wordspring-runner", "Settings saved."));
 }
 
 void SettingsWidget::refreshTable()
@@ -153,27 +157,34 @@ void SettingsWidget::importNext()
     const QString importer = script.isEmpty() ? QStringLiteral(WORDSPRING_SOURCE_IMPORTER) : script;
     m_process = new QProcess(this);
     const QString python = m_python->text().trimmed().isEmpty() ? QStringLiteral("python3") : m_python->text().trimmed();
-    m_status->setText(QStringLiteral("Importing %1…").arg(QFileInfo(m_importing).fileName()));
+    m_status->setText(i18nd("wordspring-runner", "Importing %1…", QFileInfo(m_importing).fileName()));
     connect(m_process, &QProcess::readyReadStandardOutput, this, [this] {
         m_outputBuffer += m_process->readAllStandardOutput();
         while (m_outputBuffer.contains('\n')) {
             const auto line = m_outputBuffer.left(m_outputBuffer.indexOf('\n'));
             m_outputBuffer.remove(0, line.size() + 1);
             const auto object = QJsonDocument::fromJson(line).object();
-            if (object.contains("progress")) m_status->setText(QStringLiteral("Imported %1 entries…").arg(object.value("progress").toInt()));
+            if (object.contains("progress")) m_status->setText(i18nd("wordspring-runner", "Imported %1 entries…", object.value("progress").toInt()));
             if (object.contains("name")) {
                 for (auto &item : m_items) if (item.source == m_importing) item.name = object.value("name").toString();
                 refreshTable();
                 emit modified();
-                m_status->setText(QStringLiteral("Imported %1 entries.").arg(object.value("count").toInt()));
+                m_status->setText(i18nd("wordspring-runner", "Imported %1 entries.", object.value("count").toInt()));
             }
         }
     });
     connect(m_process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this, [this](int code, QProcess::ExitStatus) {
         if (code != 0) {
             const auto message = QString::fromUtf8(m_process->readAllStandardError()).trimmed();
-            m_status->setText(message.isEmpty() ? QStringLiteral("Import failed. Check the Python executable and dictionary files.") : message);
+            m_status->setText(message.isEmpty() ? i18nd("wordspring-runner", "Import failed. Check the Python executable and dictionary files.") : message);
         }
+        m_process->deleteLater();
+        m_process = nullptr;
+        importNext();
+    });
+    connect(m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
+        if (error != QProcess::FailedToStart || !m_process) return;
+        m_status->setText(i18nd("wordspring-runner", "Could not start the selected Python executable."));
         m_process->deleteLater();
         m_process = nullptr;
         importNext();
