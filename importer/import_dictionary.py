@@ -63,7 +63,6 @@ class CleanHTML(HTMLParser):
             elif "eg" in classes or "ex" in classes:
                 rendered, style_class = "em", "ws-example"
             elif "subEntryBlock" in classes:
-                self.html.append("<hr>")
                 rendered, style_class = "div", "ws-section"
             elif "subEntry" in classes:
                 rendered, style_class = "div", "ws-phrase"
@@ -91,10 +90,10 @@ class CleanHTML(HTMLParser):
                 class_attribute = f' class="{style_class}"' if style_class else ""
                 self.html.append(f"<{rendered}{class_attribute}>")
             if rendered not in {"br", "hr"}:
-                self.stack.append((tag, rendered))
+                self.stack.append((tag, rendered, style_class == "ws-section-title"))
         elif tag in self.BLOCK:
             self.html.append("<p>")
-            self.stack.append((tag, "p"))
+            self.stack.append((tag, "p", False))
 
     def handle_endtag(self, tag):
         tag = tag.rsplit(":", 1)[-1].lower()
@@ -106,7 +105,10 @@ class CleanHTML(HTMLParser):
         if tag in self.BLOCK:
             self.plain.append(" ")
         if self.stack and tag == self.stack[-1][0]:
-            self.html.append(f"</{self.stack.pop()[1]}>")
+            _, rendered, add_rule = self.stack.pop()
+            self.html.append(f"</{rendered}>")
+            if add_rule:
+                self.html.append("<hr>")
 
     def handle_data(self, data):
         if self.suppress:
@@ -116,7 +118,10 @@ class CleanHTML(HTMLParser):
 
     def finish(self):
         while self.stack:
-            self.html.append(f"</{self.stack.pop()[1]}>")
+            _, rendered, add_rule = self.stack.pop()
+            self.html.append(f"</{rendered}>")
+            if add_rule:
+                self.html.append("<hr>")
         return "".join(self.html), " ".join("".join(self.plain).split())
 
 

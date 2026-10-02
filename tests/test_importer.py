@@ -42,12 +42,15 @@ class ImporterTest(unittest.TestCase):
         html = ('<span class="hg"><span class="hw">happy</span><span class="pr"> /hapi/</span></span>'
                 '<span class="se2"><span class="sn">1</span><span class="df">pleased</span>'
                 '<span class="eg">she smiled</span></span>'
-                '<span class="subEntryBlock"><span class="gp ty_label x_xoLblBlk">PHRASES</span></span>')
+                '<span class="subEntryBlock"><span class="gp ty_label x_xoLblBlk">PHRASES</span></span>'
+                '<span class="subEntryBlock"><span class="gp ty_label x_xoLblBlk">ORIGIN</span></span>')
         cleaned, _preview = module.clean_definition(html, True)
         for expected in ('class="ws-head"', 'class="ws-pron"', 'class="ws-sense"',
                          'class="ws-definition"', 'class="ws-example"', '<hr>', 'class="ws-section-title"'):
             self.assertIn(expected, cleaned)
         self.assertIn('<span class="ws-number">1</span>', cleaned)
+        self.assertIn('PHRASES</h3><hr>', cleaned)
+        self.assertIn('ORIGIN</h3><hr>', cleaned)
 
     def test_typed_stardict_record(self):
         parts = module.stardict_definition(b"mA small definition\0h<b>bold</b>\0", "")
