@@ -115,8 +115,8 @@ QVector<Article> Store::lookup(const QString &word, int limitPerDictionary)
             continue;
         }
         sqlite3_stmt *stmt = nullptr;
-        const char *sql = "SELECT e.id,e.headword,e.preview,e.html,e.meanings FROM keys k JOIN entries e ON e.id=k.entry_id WHERE k.norm=?1 ORDER BY e.id LIMIT ?2";
-        const char *legacySql = "SELECT e.id,e.headword,e.preview,e.html,'' FROM keys k JOIN entries e ON e.id=k.entry_id WHERE k.norm=?1 ORDER BY e.id LIMIT ?2";
+        const char *sql = "SELECT e.id,e.headword,e.preview,'',e.meanings FROM keys k JOIN entries e ON e.id=k.entry_id WHERE k.norm=?1 ORDER BY e.id LIMIT ?2";
+        const char *legacySql = "SELECT e.id,e.headword,e.preview,'','' FROM keys k JOIN entries e ON e.id=k.entry_id WHERE k.norm=?1 ORDER BY e.id LIMIT ?2";
         if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) sqlite3_prepare_v2(db, legacySql, -1, &stmt, nullptr);
         if (stmt) {
             sqlite3_bind_text(stmt, 1, key.constData(), -1, SQLITE_TRANSIENT);

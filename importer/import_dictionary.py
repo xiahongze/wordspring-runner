@@ -16,7 +16,7 @@ import tempfile
 
 
 class CleanHTML(HTMLParser):
-    ALLOWED = {"div", "p", "br", "b", "strong", "i", "em", "u", "ul", "ol", "li", "span", "sup", "sub", "blockquote", "h1", "h2", "h3", "a"}
+    ALLOWED = {"div", "p", "br", "b", "strong", "i", "em", "u", "ul", "ol", "li", "span", "sup", "sub", "blockquote", "h1", "h2", "h3", "a", "hr"}
     BLOCK = {"div", "p", "br", "li", "blockquote", "h1", "h2", "h3"}
 
     def __init__(self):
@@ -35,15 +35,48 @@ class CleanHTML(HTMLParser):
             return
         classes = next((v.split() for k, v in attrs if k == "class"), [])
         rendered = tag
+        style_class = ""
         if tag == "span":
             if "hg" in classes:
-                rendered = "h2"
-            elif "msDict" in classes or any(c.startswith("se") and c[2:].isdigit() for c in classes):
-                rendered = "div"
-            elif "pos" in classes or "posg" in classes:
-                rendered = "b"
+                rendered, style_class = "h1", "ws-head"
+            elif "hw" in classes:
+                style_class = "ws-word"
+            elif "pr" in classes or "prx" in classes:
+                style_class = "ws-pron"
+            elif "posg" in classes:
+                rendered, style_class = "p", "ws-pos"
+            elif "pos" in classes:
+                style_class = "ws-posname"
+            elif "se2" in classes:
+                rendered, style_class = "div", "ws-sense"
+            elif "se1" in classes:
+                rendered, style_class = "div", "ws-part"
+            elif "msDict" in classes:
+                if "t_subsense" in classes:
+                    rendered, style_class = "p", "ws-subsense"
+                elif "t_core" in classes:
+                    rendered, style_class = "p", "ws-phrase-definition"
+                else:
+                    style_class = "ws-meaning"
+            elif "df" in classes:
+                rendered, style_class = "strong", "ws-definition"
             elif "eg" in classes or "ex" in classes:
-                rendered = "i"
+                rendered, style_class = "em", "ws-example"
+            elif "subEntryBlock" in classes:
+                self.html.append("<hr>")
+                rendered, style_class = "div", "ws-section"
+            elif "subEntry" in classes:
+                rendered, style_class = "div", "ws-phrase"
+            elif "sn" in classes:
+                style_class = "ws-number"
+            elif "gp" in classes and "ty_label" in classes and "x_xoLblBlk" in classes:
+                rendered, style_class = "h3", "ws-section-title"
+            elif "l" in classes and "x_xoh" in classes:
+                rendered, style_class = "strong", "ws-phrase-head"
+            elif any(c in classes for c in ("ge", "reg", "gg", "lg")):
+                style_class = "ws-qualifier"
+            elif any(c.startswith("se") and c[2:].isdigit() for c in classes):
+                rendered = "div"
         if rendered in self.BLOCK:
             self.plain.append(" ")
         if rendered in self.ALLOWED:
@@ -55,8 +88,9 @@ class CleanHTML(HTMLParser):
                     self.html.append("<span>")
                     rendered = "span"
             else:
-                self.html.append(f"<{rendered}>")
-            if rendered != "br":
+                class_attribute = f' class="{style_class}"' if style_class else ""
+                self.html.append(f"<{rendered}{class_attribute}>")
+            if rendered not in {"br", "hr"}:
                 self.stack.append((tag, rendered))
         elif tag in self.BLOCK:
             self.html.append("<p>")

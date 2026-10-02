@@ -65,7 +65,9 @@ void StoreTest::lookupOnlyEnabled()
     const auto results = Store::lookup(QStringLiteral("STRASSE"));
     QCOMPARE(results.size(), 1);
     QCOMPARE(results.first().dictionary, QStringLiteral("Alpha"));
+    QVERIFY(results.first().html.isEmpty());
     QCOMPARE(Store::article(first, 1).headword, QStringLiteral("Straße"));
+    QCOMPARE(Store::article(first, 1).html, QStringLiteral("<p>A road</p>"));
     QFile::remove(Store::databasePath(first));
     QFile::remove(Store::databasePath(second));
 }
