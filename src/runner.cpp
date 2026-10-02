@@ -32,8 +32,21 @@ void WordspringRunner::match(KRunner::RunnerContext &context)
     for (const auto &article : Store::lookup(word)) {
         KRunner::QueryMatch match(this);
         match.setId(article.source + QLatin1Char('#') + QString::number(article.id));
-        match.setText(article.headword);
-        match.setSubtext(article.dictionary + QStringLiteral(" · ") + article.preview.left(220));
+        const auto senses = article.meanings.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        QStringList lines;
+        if (senses.isEmpty()) {
+            lines.append(QStringLiteral("<b>%1</b> — %2").arg(article.headword.toHtmlEscaped(), article.preview.left(70).toHtmlEscaped()));
+        } else {
+            for (int i = 0; i < qMin(4, senses.size()); ++i) {
+                const int limit = i == 0 ? 58 : 68;
+                const auto meaning = (senses[i].size() > limit ? senses[i].left(limit - 1) + QChar(0x2026) : senses[i]).toHtmlEscaped();
+                const auto label = i == 0 ? QStringLiteral("<b>%1</b>  ").arg(article.headword.toHtmlEscaped()) : QString();
+                lines.append(label + QStringLiteral("%1. %2").arg(i + 1).arg(meaning));
+            }
+        }
+        match.setText(lines.join(QStringLiteral("<br/>")));
+        match.setMultiLine(true);
+        match.setMatchCategory(article.dictionary);
         match.setIconName(QStringLiteral("accessories-dictionary"));
         match.setData(QVariantMap{{"source", article.source}, {"id", article.id}});
         match.setRelevance(1.0);

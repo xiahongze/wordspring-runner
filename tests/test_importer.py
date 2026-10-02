@@ -29,6 +29,7 @@ class ImporterTest(unittest.TestCase):
             with sqlite3.connect(output) as db:
                 self.assertEqual(db.execute("SELECT value FROM meta WHERE key='name'").fetchone()[0], "Tiny")
                 self.assertEqual(db.execute("SELECT COUNT(*) FROM entries").fetchone()[0], 1)
+                self.assertEqual(db.execute("SELECT meanings FROM entries").fetchone()[0], "A road")
                 self.assertEqual({row[0] for row in db.execute("SELECT norm FROM keys")}, {"strasse", "road"})
 
     def test_rejects_unsafe_markup(self):
@@ -40,6 +41,13 @@ class ImporterTest(unittest.TestCase):
     def test_typed_stardict_record(self):
         parts = module.stardict_definition(b"mA small definition\0h<b>bold</b>\0", "")
         self.assertEqual(parts, [("A small definition", False), ("<b>bold</b>", True)])
+
+    def test_apple_primary_meanings_exclude_examples_and_subsenses(self):
+        html = ('<span class="df" d:def="1">first meaning</span>'
+                '<span class="eg">example text</span>'
+                '<span class="df">a submeaning</span>'
+                '<span class="df" d:def="1">second meaning</span>')
+        self.assertEqual(module.extract_meanings(html, True, "fallback"), "first meaning\nsecond meaning")
 
     def test_failed_import_preserves_existing_database(self):
         with tempfile.TemporaryDirectory() as directory:

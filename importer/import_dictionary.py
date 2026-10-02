@@ -86,6 +86,59 @@ class CleanHTML(HTMLParser):
         return "".join(self.html), " ".join("".join(self.plain).split())
 
 
+class MeaningCollector(HTMLParser):
+    """Collect dictionary sense text, leaving examples and pronunciation out."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.depth = 0
+        self.active = []
+        self.primary = []
+        self.definitions = []
+        self.blocks = []
+
+    def handle_starttag(self, tag, attrs):
+        self.depth += 1
+        attributes = dict(attrs)
+        classes = attributes.get("class", "").split()
+        if "df" in classes:
+            kind = "primary" if attributes.get("d:def") == "1" else "definitions"
+            self.active.append((self.depth, kind, []))
+        elif tag in {"p", "li"}:
+            self.active.append((self.depth, "blocks", []))
+
+    def handle_data(self, data):
+        for _depth, _kind, parts in self.active:
+            parts.append(data)
+
+    def handle_endtag(self, _tag):
+        for capture in self.active[:]:
+            depth, kind, parts = capture
+            if depth == self.depth:
+                value = " ".join("".join(parts).split())
+                if value:
+                    getattr(self, kind).append(value)
+                self.active.remove(capture)
+        self.depth = max(0, self.depth - 1)
+
+
+def extract_meanings(definition, is_html, preview):
+    if not is_html:
+        candidates = definition.splitlines()
+    else:
+        collector = MeaningCollector()
+        collector.feed(definition)
+        candidates = collector.primary or collector.definitions or collector.blocks
+    result = []
+    for candidate in candidates:
+        candidate = " ".join(candidate.split())
+        if candidate and candidate not in result:
+            result.append(candidate)
+        if len(result) == 4:
+            break
+    return "\n".join(result or [preview])
+
+
 def clean_definition(definition, is_html):
     if not is_html:
         text = " ".join(definition.split())
@@ -100,7 +153,7 @@ def create_schema(db):
         PRAGMA journal_mode=OFF;
         PRAGMA synchronous=OFF;
         CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-        CREATE TABLE entries (id INTEGER PRIMARY KEY, headword TEXT NOT NULL, preview TEXT NOT NULL, html TEXT NOT NULL);
+        CREATE TABLE entries (id INTEGER PRIMARY KEY, headword TEXT NOT NULL, preview TEXT NOT NULL, html TEXT NOT NULL, meanings TEXT NOT NULL);
         CREATE TABLE keys (norm TEXT NOT NULL, entry_id INTEGER NOT NULL, UNIQUE(norm, entry_id));
         CREATE INDEX keys_norm ON keys(norm);
     """)
@@ -113,7 +166,8 @@ def insert_entry(db, words, definition, is_html):
     html, text = clean_definition(definition, is_html)
     if not text:
         return None
-    cur = db.execute("INSERT INTO entries(headword,preview,html) VALUES(?,?,?)", (words[0], text[:400], html))
+    meanings = extract_meanings(definition, is_html, text)
+    cur = db.execute("INSERT INTO entries(headword,preview,html,meanings) VALUES(?,?,?,?)", (words[0], text[:400], html, meanings))
     db.executemany("INSERT OR IGNORE INTO keys(norm,entry_id) VALUES(?,?)", ((word.casefold(), cur.lastrowid) for word in set(words)))
     return cur.lastrowid
 

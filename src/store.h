@@ -14,6 +14,7 @@ struct Article {
     qint64 id = 0;
     QString headword;
     QString preview;
+    QString meanings;
     QString html;
     QString dictionary;
 };

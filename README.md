@@ -1,6 +1,6 @@
 # Wordspring Runner
 
-An offline dictionary lookup plugin for Plasma 6 KRunner. Type `define word` to see a concise result from each enabled dictionary; press Enter to read the full entry in a small article window. The trigger word is configurable.
+An offline dictionary lookup plugin for Plasma 6 KRunner. Type `define word` to see up to four short meanings from each enabled dictionary; press Enter to read the full entry in a small article window. The trigger word is configurable.
 
 | Article | Settings |
 | --- | --- |
