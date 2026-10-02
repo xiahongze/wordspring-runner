@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  binaries:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    # Debian 13 ships Qt 6.8 and KF 6.13, older than current Plasma distributions, so the
+    # binaries load on Debian 13 and newer Qt 6/KF6 systems.
+    container: debian:trixie
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            ca-certificates git cmake ninja-build g++ extra-cmake-modules qt6-base-dev qt6-qpa-plugins \
+            libkf6runner-dev libkf6kcmutils-dev libkf6config-dev libkf6coreaddons-dev libkf6i18n-dev \
+            libsqlite3-dev python3
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib
+      - name: Build
+        run: cmake --build build
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - name: Package
+        run: scripts/package.sh build dist linux-${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.arch }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: binary-*
+          path: dist
+          merge-multiple: true
+      - name: Package source and checksums
+        run: |
+          git archive --format=tar.gz --prefix="wordspring-runner-${GITHUB_REF_NAME#v}/" \
+            -o "dist/wordspring-runner-${GITHUB_REF_NAME#v}-source.tar.gz" HEAD
+          cd dist && sha256sum *.tar.gz > SHA256SUMS
+      - name: Release notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v heading="## $version" '$0 == heading { found = 1; next } found && /^## / { exit } found' CHANGELOG.md > notes.md
+          cat >> notes.md <<'EOF'
+
+          ## Downloads
+
+          - `wordspring-runner-*-linux-x86_64.tar.gz` and `wordspring-runner-*-linux-aarch64.tar.gz`: prebuilt for Plasma 6 on Debian 13 or any distribution with Qt 6.8 and KDE Frameworks 6.13 or newer (Arch, Fedora 42+, openSUSE Tumbleweed, Kubuntu 25.10+). Unpack and run `./install.sh`.
+          - `wordspring-runner-*-source.tar.gz`: build from source as described in the README.
+
+          No dictionary data is included. Import only dictionaries you own or are licensed to use.
+          EOF
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/SHA256SUMS
+          body_path: notes.md

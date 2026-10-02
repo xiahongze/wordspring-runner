@@ -11,5 +11,6 @@
 - Show up to four primary meanings in a multiline KRunner result, with the dictionary name in the category column.
 - Use editable short dictionary labels in KRunner's fixed-width category column.
 - Native Plasma 6 KRunner lookup with a configurable trigger.
+- Prebuilt x86_64 and arm64 Linux tarballs with a user or system `install.sh`; the runner finds the article viewer beside its plugin, so tarball installs work in any prefix.
 - Apple Dictionary and StarDict import into indexed SQLite files.
 - Dictionary management and an article window.

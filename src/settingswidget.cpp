@@ -2,11 +2,13 @@
 #include "userstate.h"
 #include <KLocalizedString>
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QDirIterator>
 #include <QDateTime>
 #include <QFile>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -270,7 +272,9 @@ void SettingsWidget::importNext()
     m_importing = m_queue.takeFirst();
     m_outputBuffer.clear();
     const auto script = QStandardPaths::locate(QStandardPaths::GenericDataLocation, QStringLiteral("wordspring/import_dictionary.py"));
-    const QString importer = script.isEmpty() ? QStringLiteral(WORDSPRING_SOURCE_IMPORTER) : script;
+    const auto bundled = QCoreApplication::applicationDirPath() + QStringLiteral("/../share/wordspring/import_dictionary.py");
+    const QString importer = !script.isEmpty() ? script
+        : QFileInfo::exists(bundled) ? QDir::cleanPath(bundled) : QStringLiteral(WORDSPRING_SOURCE_IMPORTER);
     m_process = new QProcess(this);
     const QString python = m_python->text().trimmed().isEmpty() ? QStringLiteral("python3") : m_python->text().trimmed();
     m_status->setText(i18nd("wordspring-runner", "Importing %1…", QFileInfo(m_importing).fileName()));

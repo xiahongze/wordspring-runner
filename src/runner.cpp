@@ -5,8 +5,28 @@
 #include <KLocalizedString>
 #include <KRunner/QueryMatch>
 #include <KRunner/RunnerContext>
+#include <QDir>
+#include <QFileInfo>
 #include <QProcess>
+#include <QStandardPaths>
 #include <QVariantMap>
+
+namespace
+{
+// Prefer the viewer installed beside this plugin, so a tarball unpacked into any prefix opens its own build.
+QString viewerPath(const QString &pluginFile)
+{
+    QDir dir = QFileInfo(pluginFile).dir();
+    for (int level = 0; level < 6 && dir.cdUp(); ++level) {
+        const QFileInfo candidate(dir.filePath(QStringLiteral("bin/wordspring")));
+        if (candidate.isExecutable()) return candidate.filePath();
+    }
+    const QString configured = QStringLiteral(WORDSPRING_APP_PATH);
+    if (QFileInfo(configured).isExecutable()) return configured;
+    const auto found = QStandardPaths::findExecutable(QStringLiteral("wordspring"));
+    return found.isEmpty() ? configured : found;
+}
+}
 
 WordspringRunner::WordspringRunner(QObject *parent, const KPluginMetaData &data)
     : KRunner::AbstractRunner(parent, data)
@@ -57,7 +77,7 @@ void WordspringRunner::match(KRunner::RunnerContext &context)
 void WordspringRunner::run(const KRunner::RunnerContext &, const KRunner::QueryMatch &match)
 {
     const auto data = match.data().toMap();
-    QProcess::startDetached(QStringLiteral(WORDSPRING_APP_PATH), {
+    QProcess::startDetached(viewerPath(metadata().fileName()), {
         QStringLiteral("--source"), data.value(QStringLiteral("source")).toString(),
         QStringLiteral("--entry"), data.value(QStringLiteral("id")).toString()
     });

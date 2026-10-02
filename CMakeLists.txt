@@ -17,6 +17,10 @@ find_package(KF6Runner REQUIRED)
 find_package(KF6KCMUtils REQUIRED)
 find_package(KF6I18n REQUIRED)
 find_package(SQLite3 REQUIRED)
+# CMake before 4.1 names the imported target SQLite::SQLite3.
+if(NOT TARGET SQLite3::SQLite3)
+  add_library(SQLite3::SQLite3 ALIAS SQLite::SQLite3)
+endif()
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 add_library(wordspring_core STATIC src/store.cpp src/store.h src/userstate.cpp src/userstate.h)
@@ -44,6 +48,9 @@ target_link_libraries(kcm_krunner_wordspring PRIVATE wordspring_settings KF6::KC
 
 add_executable(wordspring src/main.cpp)
 target_link_libraries(wordspring PRIVATE wordspring_settings wordspring_view Qt6::Widgets KF6::I18n)
+# PIC (not PIE) avoids copy relocations, so a binary built against one distro's Qt also runs where Qt
+# is built with -mno-direct-extern-access, as on Arch.
+target_compile_options(wordspring PRIVATE -fPIC)
 install(TARGETS wordspring RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES importer/import_dictionary.py DESTINATION ${CMAKE_INSTALL_DATADIR}/wordspring)
 
