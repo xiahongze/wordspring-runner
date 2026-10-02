@@ -47,6 +47,8 @@ sudo cmake --install build
 
 The install adds a native KRunner plugin, its configuration module, the `wordspring` article and settings application, and the importer. Restart KRunner or log out and back in so Plasma discovers the new plugin.
 
+For a per-user installation, configure with `-DCMAKE_INSTALL_PREFIX="$HOME/.local"`, run `cmake --install build` without `sudo`, and copy [`scripts/wordspring-plasma-env.sh`](scripts/wordspring-plasma-env.sh) into `~/.config/plasma-workspace/env/`. Log out and back in so Plasma includes the user plugin directory in Qt's search path.
+
 Open **System Settings → Search → Plasma Search → Wordspring Runner** to configure sources. You can also run `wordspring --settings`. To import the example macOS asset directory mentioned during development, choose **Add folder** and select `~/Documents/dictionaries/com_apple_MobileAsset_DictionaryServices_dictionaryOSX`; the app discovers its `.dictionary` bundles. Some bundles may contain no usable `Body.data`; their import reports an error, and you can remove them from the list.
 
 Use `define run` in KRunner. Selecting a result opens the full entry. Click an internal word link in the article to look it up. Change **KRunner keyword** to use another trigger.
