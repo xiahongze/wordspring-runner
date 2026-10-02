@@ -1,0 +1,11 @@
+{
+  "KPlugin": {
+    "Name": "Wordspring Runner",
+    "Description": "Look up words in offline dictionaries",
+    "Icon": "accessories-dictionary",
+    "Version": "0.1.0",
+    "License": "GPL-3.0-or-later",
+    "EnabledByDefault": true
+  },
+  "X-KDE-ConfigModule": "kf6/krunner/kcms/kcm_krunner_wordspring"
+}

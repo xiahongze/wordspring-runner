@@ -1,0 +1,13 @@
+/build/
+/dist/
+/venv/
+/.venv/
+__pycache__/
+*.pyc
+*.sqlite
+*.dictionary/
+*.dict
+*.dict.dz
+*.idx
+*.ifo
+*.syn
