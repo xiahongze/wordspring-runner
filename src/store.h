@@ -21,7 +21,10 @@ struct Article {
 class Store {
 public:
     static QString trigger();
+    static void reload();
     static void setTrigger(const QString &trigger);
+    static QString pythonExecutable();
+    static void setPythonExecutable(const QString &path);
     static QVector<DictionaryInfo> dictionaries();
     static void setDictionaries(const QVector<DictionaryInfo> &items);
     static QString databasePath(const QString &source);

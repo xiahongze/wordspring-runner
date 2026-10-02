@@ -36,10 +36,21 @@ Article readRow(sqlite3_stmt *stmt, const DictionaryInfo &dictionary)
 
 QString Store::trigger() { return settings().readEntry("Trigger", QStringLiteral("define")); }
 
+void Store::reload() { KSharedConfig::openConfig(QStringLiteral("wordspringrc"))->reparseConfiguration(); }
+
 void Store::setTrigger(const QString &trigger)
 {
     auto group = settings();
     group.writeEntry("Trigger", trigger.trimmed());
+    group.sync();
+}
+
+QString Store::pythonExecutable() { return settings().readEntry("PythonExecutable", QStringLiteral("python3")); }
+
+void Store::setPythonExecutable(const QString &path)
+{
+    auto group = settings();
+    group.writeEntry("PythonExecutable", path.trimmed());
     group.sync();
 }
 

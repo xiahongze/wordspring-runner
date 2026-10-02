@@ -14,6 +14,7 @@ WordspringRunner::WordspringRunner(QObject *parent, const KPluginMetaData &data)
 
 void WordspringRunner::reloadConfiguration()
 {
+    Store::reload();
     m_trigger = Store::trigger().trimmed();
     if (m_trigger.isEmpty()) m_trigger = QStringLiteral("define");
     setSyntaxes({});

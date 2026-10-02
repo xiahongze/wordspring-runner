@@ -1,0 +1,206 @@
+#include "settingswidget.h"
+
+#include <QDir>
+#include <QDirIterator>
+#include <QFile>
+#include <QFileDialog>
+#include <QFormLayout>
+#include <QHBoxLayout>
+#include <QHeaderView>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QLabel>
+#include <QLineEdit>
+#include <QProcess>
+#include <QPushButton>
+#include <QSignalBlocker>
+#include <QStandardPaths>
+#include <QTableWidget>
+#include <QVBoxLayout>
+
+SettingsWidget::SettingsWidget(QWidget *parent) : QWidget(parent)
+{
+    auto *layout = new QVBoxLayout(this);
+    auto *form = new QFormLayout;
+    m_trigger = new QLineEdit(this);
+    m_trigger->setPlaceholderText(QStringLiteral("define"));
+    form->addRow(QStringLiteral("KRunner keyword:"), m_trigger);
+    m_python = new QLineEdit(this);
+    m_python->setPlaceholderText(QStringLiteral("python3"));
+    form->addRow(QStringLiteral("Import Python:"), m_python);
+    layout->addLayout(form);
+    layout->addWidget(new QLabel(QStringLiteral("Type “define word” in KRunner. Add dictionary bundles or a folder containing them."), this));
+
+    m_table = new QTableWidget(this);
+    m_table->setColumnCount(2);
+    m_table->setHorizontalHeaderLabels({QStringLiteral("Enabled"), QStringLiteral("Dictionary")});
+    m_table->horizontalHeader()->setStretchLastSection(true);
+    m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_table->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_table->verticalHeader()->hide();
+    layout->addWidget(m_table);
+
+    auto *buttons = new QHBoxLayout;
+    auto addButton = [&](const QString &text, auto action) {
+        auto *button = new QPushButton(text, this);
+        buttons->addWidget(button);
+        connect(button, &QPushButton::clicked, this, action);
+    };
+    addButton(QStringLiteral("Add Apple bundle"), [this] {
+        const auto path = QFileDialog::getExistingDirectory(this, QStringLiteral("Choose .dictionary bundle"));
+        if (!path.isEmpty()) addSource(path);
+    });
+    addButton(QStringLiteral("Add folder"), [this] {
+        const auto path = QFileDialog::getExistingDirectory(this, QStringLiteral("Choose dictionary folder"));
+        if (!path.isEmpty()) addSource(path);
+    });
+    addButton(QStringLiteral("Add StarDict"), [this] {
+        const auto path = QFileDialog::getOpenFileName(this, QStringLiteral("Choose StarDict .ifo"), {}, QStringLiteral("StarDict (*.ifo)"));
+        if (!path.isEmpty()) addSource(path);
+    });
+    layout->addLayout(buttons);
+
+    auto *manage = new QHBoxLayout;
+    auto manageButton = [&](const QString &text, auto action) {
+        auto *button = new QPushButton(text, this);
+        manage->addWidget(button);
+        connect(button, &QPushButton::clicked, this, action);
+    };
+    manageButton(QStringLiteral("Reimport"), [this] {
+        const int row = m_table->currentRow();
+        if (row >= 0 && row < m_items.size()) { m_queue.append(m_items[row].source); importNext(); }
+    });
+    manageButton(QStringLiteral("Remove"), [this] { removeSelected(); });
+    manageButton(QStringLiteral("Move up"), [this] { moveSelected(-1); });
+    manageButton(QStringLiteral("Move down"), [this] { moveSelected(1); });
+    manage->addStretch();
+    layout->addLayout(manage);
+    m_status = new QLabel(this);
+    m_status->setWordWrap(true);
+    layout->addWidget(m_status);
+    connect(m_trigger, &QLineEdit::textChanged, this, &SettingsWidget::modified);
+    connect(m_python, &QLineEdit::textChanged, this, &SettingsWidget::modified);
+    connect(m_table, &QTableWidget::itemChanged, this, [this](QTableWidgetItem *item) {
+        if (item->column() == 0 && item->row() < m_items.size()) {
+            m_items[item->row()].enabled = item->checkState() == Qt::Checked;
+            emit modified();
+        }
+    });
+    load();
+}
+
+void SettingsWidget::load()
+{
+    m_trigger->setText(Store::trigger());
+    m_python->setText(Store::pythonExecutable());
+    m_items = Store::dictionaries();
+    refreshTable();
+}
+
+void SettingsWidget::save()
+{
+    const auto trigger = m_trigger->text().trimmed();
+    if (trigger.isEmpty() || trigger.contains(QLatin1Char(' '))) {
+        m_status->setText(QStringLiteral("Keyword must be one word without spaces."));
+        return;
+    }
+    Store::setTrigger(trigger);
+    Store::setPythonExecutable(m_python->text().trimmed().isEmpty() ? QStringLiteral("python3") : m_python->text().trimmed());
+    Store::setDictionaries(m_items);
+    m_status->setText(QStringLiteral("Settings saved."));
+}
+
+void SettingsWidget::refreshTable()
+{
+    QSignalBlocker blocker(m_table);
+    m_table->setRowCount(m_items.size());
+    for (int i = 0; i < m_items.size(); ++i) {
+        auto *enabled = new QTableWidgetItem;
+        enabled->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsUserCheckable);
+        enabled->setCheckState(m_items[i].enabled ? Qt::Checked : Qt::Unchecked);
+        m_table->setItem(i, 0, enabled);
+        auto *name = new QTableWidgetItem(m_items[i].name);
+        name->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+        name->setToolTip(m_items[i].source);
+        m_table->setItem(i, 1, name);
+    }
+    m_table->resizeColumnToContents(0);
+}
+
+void SettingsWidget::addSource(const QString &path)
+{
+    const QString canonical = QFileInfo(path).canonicalFilePath();
+    if (canonical.isEmpty()) return;
+    if (canonical.endsWith(QStringLiteral(".dictionary")) || canonical.endsWith(QStringLiteral(".ifo"))) {
+        for (const auto &item : m_items) if (item.source == canonical) return;
+        m_items.push_back({canonical, QFileInfo(canonical).completeBaseName(), true});
+        m_queue.append(canonical);
+        refreshTable();
+        emit modified();
+        importNext();
+        return;
+    }
+    QDirIterator it(canonical, {QStringLiteral("*.dictionary"), QStringLiteral("*.ifo")}, QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+    while (it.hasNext()) addSource(it.next());
+}
+
+void SettingsWidget::importNext()
+{
+    if (m_process || m_queue.isEmpty()) return;
+    m_importing = m_queue.takeFirst();
+    m_outputBuffer.clear();
+    const auto script = QStandardPaths::locate(QStandardPaths::GenericDataLocation, QStringLiteral("wordspring/import_dictionary.py"));
+    const QString importer = script.isEmpty() ? QStringLiteral(WORDSPRING_SOURCE_IMPORTER) : script;
+    m_process = new QProcess(this);
+    const QString python = m_python->text().trimmed().isEmpty() ? QStringLiteral("python3") : m_python->text().trimmed();
+    m_status->setText(QStringLiteral("Importing %1…").arg(QFileInfo(m_importing).fileName()));
+    connect(m_process, &QProcess::readyReadStandardOutput, this, [this] {
+        m_outputBuffer += m_process->readAllStandardOutput();
+        while (m_outputBuffer.contains('\n')) {
+            const auto line = m_outputBuffer.left(m_outputBuffer.indexOf('\n'));
+            m_outputBuffer.remove(0, line.size() + 1);
+            const auto object = QJsonDocument::fromJson(line).object();
+            if (object.contains("progress")) m_status->setText(QStringLiteral("Imported %1 entries…").arg(object.value("progress").toInt()));
+            if (object.contains("name")) {
+                for (auto &item : m_items) if (item.source == m_importing) item.name = object.value("name").toString();
+                refreshTable();
+                emit modified();
+                m_status->setText(QStringLiteral("Imported %1 entries.").arg(object.value("count").toInt()));
+            }
+        }
+    });
+    connect(m_process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this, [this](int code, QProcess::ExitStatus) {
+        if (code != 0) {
+            const auto message = QString::fromUtf8(m_process->readAllStandardError()).trimmed();
+            m_status->setText(message.isEmpty() ? QStringLiteral("Import failed. Check the Python executable and dictionary files.") : message);
+        }
+        m_process->deleteLater();
+        m_process = nullptr;
+        importNext();
+    });
+    m_process->start(python, {importer, QStringLiteral("--input"), m_importing, QStringLiteral("--output"), Store::databasePath(m_importing)});
+}
+
+void SettingsWidget::removeSelected()
+{
+    const int row = m_table->currentRow();
+    if (row < 0 || row >= m_items.size()) return;
+    const auto selected = m_items[row].source;
+    m_queue.removeAll(selected);
+    if (selected == m_importing && m_process) m_process->kill();
+    QFile::remove(Store::databasePath(selected));
+    m_items.removeAt(row);
+    refreshTable();
+    emit modified();
+}
+
+void SettingsWidget::moveSelected(int direction)
+{
+    const int row = m_table->currentRow();
+    const int next = row + direction;
+    if (row < 0 || next < 0 || next >= m_items.size()) return;
+    m_items.swapItemsAt(row, next);
+    refreshTable();
+    m_table->selectRow(next);
+    emit modified();
+}
