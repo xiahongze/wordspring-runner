@@ -11,7 +11,7 @@ The screenshots use synthetic entries. No dictionary data is included in the rep
 ## Features
 
 - Import original macOS `.dictionary` bundles directly, or StarDict `.ifo` files with their companion `.idx`, `.dict` or `.dict.dz`, and optional `.syn` files.
-- Add a folder to discover multiple dictionary bundles and StarDict files. Enable, disable, reorder, reimport, or remove sources in settings.
+- Add a folder to discover multiple dictionary bundles and StarDict files. Enable, disable, reorder, reimport, or remove sources in settings. Each source has an editable short label for KRunner; for example, Oxford Dictionary of English defaults to **ODE**.
 - Keep an indexed SQLite copy of each dictionary in your XDG data directory. Lookup opens only the enabled databases and never runs the importer.
 - Preserve basic article structure, examples, part-of-speech emphasis, and internal word links. Original Apple CSS, audio, and embedded images are not included.
 

@@ -46,7 +46,7 @@ void WordspringRunner::match(KRunner::RunnerContext &context)
         }
         match.setText(lines.join(QStringLiteral("<br/>")));
         match.setMultiLine(true);
-        match.setMatchCategory(article.dictionary);
+        match.setMatchCategory(article.dictionaryLabel);
         match.setIconName(QStringLiteral("accessories-dictionary"));
         match.setData(QVariantMap{{"source", article.source}, {"id", article.id}});
         match.setRelevance(1.0);

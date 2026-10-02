@@ -7,6 +7,7 @@ struct DictionaryInfo {
     QString source;
     QString name;
     bool enabled = true;
+    QString label;
 };
 
 struct Article {
@@ -17,6 +18,7 @@ struct Article {
     QString meanings;
     QString html;
     QString dictionary;
+    QString dictionaryLabel;
 };
 
 class Store {
@@ -29,6 +31,7 @@ public:
     static QVector<DictionaryInfo> dictionaries();
     static void setDictionaries(const QVector<DictionaryInfo> &items);
     static QString databasePath(const QString &source);
+    static QString suggestLabel(const QString &name);
     static QVector<Article> lookup(const QString &word, int limitPerDictionary = 2);
     static Article article(const QString &source, qint64 id);
 };

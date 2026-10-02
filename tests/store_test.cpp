@@ -11,7 +11,15 @@ class StoreTest : public QObject {
     Q_OBJECT
 private slots:
     void lookupOnlyEnabled();
+    void shortLabels();
 };
+
+void StoreTest::shortLabels()
+{
+    QCOMPARE(Store::suggestLabel(QStringLiteral("Oxford Dictionary of English")), QStringLiteral("ODE"));
+    QCOMPARE(Store::suggestLabel(QStringLiteral("Oxford Thesaurus of English")), QStringLiteral("OTE"));
+    QCOMPARE(Store::suggestLabel(QStringLiteral("現代漢語同義詞典")), QStringLiteral("現代漢語同義詞典"));
+}
 
 void StoreTest::lookupOnlyEnabled()
 {

@@ -36,8 +36,8 @@ SettingsWidget::SettingsWidget(QWidget *parent) : QWidget(parent)
     layout->addWidget(m_help);
 
     m_table = new QTableWidget(this);
-    m_table->setColumnCount(2);
-    m_table->setHorizontalHeaderLabels({i18nd("wordspring-runner", "Enabled"), i18nd("wordspring-runner", "Dictionary")});
+    m_table->setColumnCount(3);
+    m_table->setHorizontalHeaderLabels({i18nd("wordspring-runner", "Enabled"), i18nd("wordspring-runner", "Label"), i18nd("wordspring-runner", "Dictionary")});
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -88,10 +88,10 @@ SettingsWidget::SettingsWidget(QWidget *parent) : QWidget(parent)
     });
     connect(m_python, &QLineEdit::textChanged, this, &SettingsWidget::modified);
     connect(m_table, &QTableWidget::itemChanged, this, [this](QTableWidgetItem *item) {
-        if (item->column() == 0 && item->row() < m_items.size()) {
-            m_items[item->row()].enabled = item->checkState() == Qt::Checked;
-            emit modified();
-        }
+        if (item->row() >= m_items.size()) return;
+        if (item->column() == 0) m_items[item->row()].enabled = item->checkState() == Qt::Checked;
+        if (item->column() == 1) m_items[item->row()].label = item->text().trimmed().left(12);
+        emit modified();
     });
     load();
 }
@@ -126,12 +126,16 @@ void SettingsWidget::refreshTable()
         enabled->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsUserCheckable);
         enabled->setCheckState(m_items[i].enabled ? Qt::Checked : Qt::Unchecked);
         m_table->setItem(i, 0, enabled);
+        auto *label = new QTableWidgetItem(m_items[i].label);
+        label->setToolTip(i18nd("wordspring-runner", "Double-click to edit the short label shown in KRunner."));
+        m_table->setItem(i, 1, label);
         auto *name = new QTableWidgetItem(m_items[i].name);
         name->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
         name->setToolTip(m_items[i].source);
-        m_table->setItem(i, 1, name);
+        m_table->setItem(i, 2, name);
     }
     m_table->resizeColumnToContents(0);
+    m_table->resizeColumnToContents(1);
 }
 
 void SettingsWidget::addSource(const QString &path)
@@ -141,7 +145,8 @@ void SettingsWidget::addSource(const QString &path)
     if (canonical.endsWith(QStringLiteral(".dictionary")) || canonical.endsWith(QStringLiteral(".ifo"))) {
         for (const auto &item : m_items) if (item.source == canonical) return;
         m_pendingRemoval.removeAll(canonical);
-        m_items.push_back({canonical, QFileInfo(canonical).completeBaseName(), true});
+        const auto name = QFileInfo(canonical).completeBaseName();
+        m_items.push_back({canonical, name, true, Store::suggestLabel(name)});
         m_queue.append(canonical);
         refreshTable();
         emit modified();
@@ -170,7 +175,11 @@ void SettingsWidget::importNext()
             const auto object = QJsonDocument::fromJson(line).object();
             if (object.contains("progress")) m_status->setText(i18nd("wordspring-runner", "Imported %1 entries…", object.value("progress").toInt()));
             if (object.contains("name")) {
-                for (auto &item : m_items) if (item.source == m_importing) item.name = object.value("name").toString();
+                for (auto &item : m_items) if (item.source == m_importing) {
+                    const auto oldSuggested = Store::suggestLabel(item.name);
+                    item.name = object.value("name").toString();
+                    if (item.label == oldSuggested) item.label = Store::suggestLabel(item.name);
+                }
                 refreshTable();
                 emit modified();
                 m_status->setText(i18nd("wordspring-runner", "Imported %1 entries.", object.value("count").toInt()));

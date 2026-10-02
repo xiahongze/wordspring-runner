@@ -7,6 +7,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <QStandardPaths>
 #include <sqlite3.h>
 
@@ -31,6 +32,7 @@ Article readRow(sqlite3_stmt *stmt, const DictionaryInfo &dictionary)
     result.html = column(stmt, 3);
     result.meanings = column(stmt, 4);
     result.dictionary = dictionary.name;
+    result.dictionaryLabel = dictionary.label.isEmpty() ? Store::suggestLabel(dictionary.name) : dictionary.label;
     return result;
 }
 }
@@ -48,6 +50,20 @@ void Store::setTrigger(const QString &trigger)
 
 QString Store::pythonExecutable() { return settings().readEntry("PythonExecutable", QStringLiteral("python3")); }
 
+QString Store::suggestLabel(const QString &name)
+{
+    const auto words = name.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
+    QString initials;
+    for (const auto &word : words) {
+        if (word.compare(QStringLiteral("of"), Qt::CaseInsensitive) == 0
+            || word.compare(QStringLiteral("the"), Qt::CaseInsensitive) == 0
+            || word.compare(QStringLiteral("and"), Qt::CaseInsensitive) == 0) continue;
+        initials += word.at(0).toUpper();
+        if (initials.size() == 8) break;
+    }
+    return initials.size() > 1 ? initials : name.left(12);
+}
+
 void Store::setPythonExecutable(const QString &path)
 {
     auto group = settings();
@@ -61,7 +77,8 @@ QVector<DictionaryInfo> Store::dictionaries()
     const auto document = QJsonDocument::fromJson(settings().readEntry("Dictionaries", QByteArray("[]")));
     for (const auto &value : document.array()) {
         const auto object = value.toObject();
-        DictionaryInfo item{object.value("source").toString(), object.value("name").toString(), object.value("enabled").toBool(true)};
+        DictionaryInfo item{object.value("source").toString(), object.value("name").toString(), object.value("enabled").toBool(true), object.value("label").toString()};
+        if (item.label.isEmpty()) item.label = suggestLabel(item.name);
         if (!item.source.isEmpty()) result.push_back(item);
     }
     return result;
@@ -71,7 +88,7 @@ void Store::setDictionaries(const QVector<DictionaryInfo> &items)
 {
     QJsonArray array;
     for (const auto &item : items) {
-        array.append(QJsonObject{{"source", item.source}, {"name", item.name}, {"enabled", item.enabled}});
+        array.append(QJsonObject{{"source", item.source}, {"name", item.name}, {"enabled", item.enabled}, {"label", item.label}});
     }
     auto group = settings();
     group.writeEntry("Dictionaries", QJsonDocument(array).toJson(QJsonDocument::Compact));
@@ -114,7 +131,7 @@ QVector<Article> Store::lookup(const QString &word, int limitPerDictionary)
 
 Article Store::article(const QString &source, qint64 id)
 {
-    DictionaryInfo dictionary{source, source};
+    DictionaryInfo dictionary{source, source, true, suggestLabel(source)};
     for (const auto &item : dictionaries()) if (item.source == source) dictionary = item;
     Article result;
     sqlite3 *db = nullptr;
