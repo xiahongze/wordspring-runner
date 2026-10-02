@@ -4,6 +4,7 @@
 
 #include <QDir>
 #include <QDirIterator>
+#include <QDateTime>
 #include <QFile>
 #include <QFileDialog>
 #include <QFormLayout>
@@ -104,11 +105,15 @@ SettingsWidget::SettingsWidget(QWidget *parent) : QWidget(parent)
     });
 
     auto *activityPage = new QWidget(m_tabs);
-    m_tabs->addTab(activityPage, i18nd("wordspring-runner", "Favorites & History"));
+    m_tabs->addTab(activityPage, i18nd("wordspring-runner", "Favorites && History"));
     auto *activityLayout = new QVBoxLayout(activityPage);
+    auto *filterRow = new QHBoxLayout;
     m_filter = new QLineEdit(activityPage);
     m_filter->setPlaceholderText(i18nd("wordspring-runner", "Filter saved words and history"));
-    activityLayout->addWidget(m_filter);
+    filterRow->addWidget(m_filter);
+    auto *refresh = new QPushButton(i18nd("wordspring-runner", "Refresh"), activityPage);
+    filterRow->addWidget(refresh);
+    activityLayout->addLayout(filterRow);
     auto *activityTabs = new QTabWidget(activityPage);
     activityLayout->addWidget(activityTabs);
 
@@ -139,6 +144,7 @@ SettingsWidget::SettingsWidget(QWidget *parent) : QWidget(parent)
     activityTabs->addTab(historyPage, i18nd("wordspring-runner", "History"));
 
     connect(m_filter, &QLineEdit::textChanged, this, &SettingsWidget::refreshActivity);
+    connect(refresh, &QPushButton::clicked, this, &SettingsWidget::refreshActivity);
     connect(m_tabs, &QTabWidget::currentChanged, this, [this](int index) { if (index == 1) refreshActivity(); });
     connect(openFavorite, &QPushButton::clicked, this, [this] { openSaved(m_favoritesList); });
     connect(openHistory, &QPushButton::clicked, this, [this] { openSaved(m_historyList); });
@@ -171,18 +177,19 @@ void SettingsWidget::showActivity()
 
 void SettingsWidget::refreshActivity()
 {
-    const auto fill = [](QListWidget *list, const QVector<SavedEntry> &entries) {
+    const auto fill = [](QListWidget *list, const QVector<SavedEntry> &entries, bool showTime) {
         list->clear();
         for (const auto &entry : entries) {
-            auto *item = new QListWidgetItem(entry.headword + QStringLiteral("  ·  ") + entry.dictionary, list);
+            const auto time = showTime ? QStringLiteral("  ·  ") + QDateTime::fromMSecsSinceEpoch(entry.timestamp).toString(QStringLiteral("yyyy-MM-dd HH:mm")) : QString();
+            auto *item = new QListWidgetItem(entry.headword + QStringLiteral("  ·  ") + entry.dictionary + time, list);
             item->setToolTip(entry.source);
             item->setData(Qt::UserRole, entry.source);
             item->setData(Qt::UserRole + 1, entry.id);
             item->setData(Qt::UserRole + 2, entry.headword);
         }
     };
-    fill(m_favoritesList, UserState::favorites(m_filter->text()));
-    fill(m_historyList, UserState::history(m_filter->text()));
+    fill(m_favoritesList, UserState::favorites(m_filter->text()), false);
+    fill(m_historyList, UserState::history(m_filter->text()), true);
 }
 
 void SettingsWidget::openSaved(QListWidget *list)
