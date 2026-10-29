@@ -62,13 +62,6 @@ default = ""
 advanced = true
 
 [[setting]]
-key = "krunner_keyword"
-type = "string"
-label_key = "settings.krunner_keyword.label"
-description_key = "settings.krunner_keyword.description"
-default = ""
-
-[[setting]]
 key = "python_executable"
 type = "string"
 label_key = "settings.python_executable.label"

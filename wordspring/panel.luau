@@ -155,7 +155,7 @@ loadDictionaries = function()
     else
       dictionaries = response.dictionaries
       dictionaryRevision += 1
-      status = "Shared with KRunner · keyword: " .. response.trigger
+      status = "Shared with KRunner."
     end
     render()
   end)

@@ -47,7 +47,7 @@ These commands can be bound to compositor shortcuts. `onIpc` also exists on the 
 
 By default the CLI reads `wordspringrc` from the XDG config location and uses the existing `$XDG_DATA_HOME/wordspring/dictionaries/` and `state.sqlite`. You can keep using KRunner and the Qt application. They share dictionary configuration, bookmarks, and history; there is no migration or dictionary copy.
 
-Plugin settings include the CLI/settings paths, an optional dictionary JSON override, KRunner keyword, import interpreter, result limit, process timeout, panel debounce, glyph, and optional bar text. Blank keyword/interpreter settings keep the existing shared values. **Save dictionaries and shared settings** in the panel explicitly applies those settings to KRunner too. The dictionary JSON override affects this plugin's lookups without changing the shared list; leave it blank for shared management. Noctalia's prefix is configured in its launcher settings independently of the KRunner keyword.
+Plugin settings include the CLI/settings paths, an optional dictionary JSON override, import interpreter, result limit, process timeout, panel debounce, glyph, and optional bar text. A blank interpreter setting keeps the existing shared value. **Save dictionaries and shared settings** in the panel explicitly applies dictionary and interpreter settings to KRunner too. The dictionary JSON override affects this plugin's lookups without changing the shared list; leave it blank for shared management. Noctalia's prefix is configured in its launcher settings.
 
 All lookup and import operations use local files. There is no network access to bypass Noctalia's offline mode, and lookup keeps working with offline mode enabled or no connection.
 

@@ -93,9 +93,7 @@ end
 
 function M.sharedSettings()
   local args = { "configure" }
-  local keyword = noctalia.string.trim(noctalia.getConfig("krunner_keyword"))
   local python = noctalia.string.trim(noctalia.getConfig("python_executable"))
-  if keyword ~= "" then table.insert(args, "--trigger"); table.insert(args, keyword) end
   if python ~= "" then table.insert(args, "--python"); table.insert(args, python) end
   return args
 end
