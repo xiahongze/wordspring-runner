@@ -1,5 +1,6 @@
 #include "settingswidget.h"
 #include "userstate.h"
+#include "core/error.h"
 #include <KLocalizedString>
 
 #include <QCoreApplication>
@@ -216,6 +217,7 @@ void SettingsWidget::load()
 
 void SettingsWidget::save()
 {
+    try {
     const auto trigger = m_trigger->text().trimmed().isEmpty() ? QStringLiteral("define") : m_trigger->text().trimmed();
     m_trigger->setText(trigger);
     Store::setTrigger(trigger);
@@ -224,6 +226,9 @@ void SettingsWidget::save()
     for (const auto &source : m_pendingRemoval) QFile::remove(Store::databasePath(source));
     m_pendingRemoval.clear();
     m_status->setText(i18nd("wordspring-runner", "Settings saved."));
+    } catch (const WordspringError &error) {
+        m_status->setText(error.message);
+    }
 }
 
 void SettingsWidget::refreshTable()

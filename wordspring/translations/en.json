@@ -1,0 +1,15 @@
+{
+  "settings.cli_path.label": "Wordspring CLI",
+  "settings.cli_path.description": "Executable name on PATH or a path to wordspring-lookup. Paths beginning with ~/ are supported.",
+  "settings.config_path.label": "Shared settings file",
+  "settings.config_path.description": "Leave blank to share wordspringrc with KRunner in the XDG configuration directory.",
+  "settings.dictionaries_json.label": "Dictionary override (JSON)",
+  "settings.dictionaries_json.description": "Optional ordered source/name/enabled/label objects. Blank uses shared dictionary settings. Manage shared sources in the panel's Dictionaries view.",
+  "settings.python_executable.label": "Import Python",
+  "settings.python_executable.description": "Blank uses Wordspring's shared interpreter. Apple import needs PyGlossary in that interpreter. Apply shared settings in the panel to save it for KRunner too.",
+  "settings.limit_per_dictionary.label": "Results per dictionary",
+  "settings.timeout_ms.label": "Lookup timeout (milliseconds)",
+  "settings.panel_debounce_ms.label": "Panel search delay (milliseconds)",
+  "settings.glyph.label": "Bar glyph",
+  "settings.show_label.label": "Show Wordspring text in horizontal bars"
+}

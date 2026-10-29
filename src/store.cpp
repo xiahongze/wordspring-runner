@@ -1,9 +1,10 @@
 #include "store.h"
 
-#include <KConfigGroup>
-#include <KSharedConfig>
+#include "core/configuration.h"
+#include "core/error.h"
 #include <QCryptographicHash>
 #include <QDir>
+#include <QDebug>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -12,7 +13,21 @@
 #include <sqlite3.h>
 
 namespace {
-KConfigGroup settings() { return KSharedConfig::openConfig(QStringLiteral("wordspringrc"))->group(QStringLiteral("General")); }
+bool hasOverride = false;
+QVector<DictionaryInfo> dictionaryOverride;
+
+QString readSetting(const QString &key, const QString &fallback)
+{
+    // Preserve the GUI's fallback behavior; the CLI validates configuration
+    // explicitly before entering this shared lookup path.
+    try { return Configuration::read(key, fallback); }
+    catch (const WordspringError &error) { qWarning() << error.message; return fallback; }
+}
+
+void issue(QVector<StoreIssue> *issues, const QString &source, sqlite3 *db)
+{
+    if (issues) issues->push_back({QStringLiteral("database_unavailable"), QString::fromUtf8(sqlite3_errmsg(db)), source});
+}
 
 QString normalized(const QString &word) { return word.trimmed().toCaseFolded(); }
 
@@ -37,18 +52,16 @@ Article readRow(sqlite3_stmt *stmt, const DictionaryInfo &dictionary)
 }
 }
 
-QString Store::trigger() { return settings().readEntry("Trigger", QStringLiteral("define")); }
+QString Store::trigger() { return readSetting("Trigger", QStringLiteral("define")); }
 
-void Store::reload() { KSharedConfig::openConfig(QStringLiteral("wordspringrc"))->reparseConfiguration(); }
+void Store::reload() {} // Settings are read afresh on every operation.
 
 void Store::setTrigger(const QString &trigger)
 {
-    auto group = settings();
-    group.writeEntry("Trigger", trigger.trimmed());
-    group.sync();
+    Configuration::write({{"Trigger", trigger.trimmed()}});
 }
 
-QString Store::pythonExecutable() { return settings().readEntry("PythonExecutable", QStringLiteral("python3")); }
+QString Store::pythonExecutable() { return readSetting("PythonExecutable", QStringLiteral("python3")); }
 
 QString Store::suggestLabel(const QString &name)
 {
@@ -66,15 +79,17 @@ QString Store::suggestLabel(const QString &name)
 
 void Store::setPythonExecutable(const QString &path)
 {
-    auto group = settings();
-    group.writeEntry("PythonExecutable", path.trimmed());
-    group.sync();
+    Configuration::write({{"PythonExecutable", path.trimmed()}});
 }
 
 QVector<DictionaryInfo> Store::dictionaries()
 {
     QVector<DictionaryInfo> result;
-    const auto document = QJsonDocument::fromJson(settings().readEntry("Dictionaries", QByteArray("[]")));
+    if (hasOverride) return dictionaryOverride;
+    QJsonParseError error;
+    const auto document = QJsonDocument::fromJson(readSetting("Dictionaries", QStringLiteral("[]")).toUtf8(), &error);
+    if (error.error != QJsonParseError::NoError || !document.isArray())
+        return result;
     for (const auto &value : document.array()) {
         const auto object = value.toObject();
         DictionaryInfo item{object.value("source").toString(), object.value("name").toString(), object.value("enabled").toBool(true), object.value("label").toString()};
@@ -90,9 +105,7 @@ void Store::setDictionaries(const QVector<DictionaryInfo> &items)
     for (const auto &item : items) {
         array.append(QJsonObject{{"source", item.source}, {"name", item.name}, {"enabled", item.enabled}, {"label", item.label}});
     }
-    auto group = settings();
-    group.writeEntry("Dictionaries", QJsonDocument(array).toJson(QJsonDocument::Compact));
-    group.sync();
+    Configuration::write({{"Dictionaries", QString::fromUtf8(QJsonDocument(array).toJson(QJsonDocument::Compact))}});
 }
 
 QString Store::databasePath(const QString &source)
@@ -101,7 +114,13 @@ QString Store::databasePath(const QString &source)
     return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/wordspring/dictionaries/") + QString::fromLatin1(hash) + QStringLiteral(".sqlite");
 }
 
-QVector<Article> Store::lookup(const QString &word, int limitPerDictionary)
+void Store::useDictionaries(const QVector<DictionaryInfo> &items)
+{
+    dictionaryOverride = items;
+    hasOverride = true;
+}
+
+QVector<Article> Store::lookup(const QString &word, int limitPerDictionary, QVector<StoreIssue> *issues)
 {
     QVector<Article> results;
     const QByteArray key = normalized(word).toUtf8();
@@ -111,7 +130,7 @@ QVector<Article> Store::lookup(const QString &word, int limitPerDictionary)
         sqlite3 *db = nullptr;
         const auto path = databasePath(dictionary.source).toUtf8();
         if (sqlite3_open_v2(path.constData(), &db, SQLITE_OPEN_READONLY, nullptr) != SQLITE_OK) {
-            if (db) sqlite3_close(db);
+            if (db) { issue(issues, dictionary.source, db); sqlite3_close(db); }
             continue;
         }
         sqlite3_stmt *stmt = nullptr;
@@ -121,15 +140,18 @@ QVector<Article> Store::lookup(const QString &word, int limitPerDictionary)
         if (stmt) {
             sqlite3_bind_text(stmt, 1, key.constData(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_int(stmt, 2, limitPerDictionary);
-            while (sqlite3_step(stmt) == SQLITE_ROW) results.push_back(readRow(stmt, dictionary));
+            int status;
+            while ((status = sqlite3_step(stmt)) == SQLITE_ROW) results.push_back(readRow(stmt, dictionary));
+            if (status != SQLITE_DONE) issue(issues, dictionary.source, db);
         }
+        if (!stmt) issue(issues, dictionary.source, db);
         if (stmt) sqlite3_finalize(stmt);
         sqlite3_close(db);
     }
     return results;
 }
 
-Article Store::article(const QString &source, qint64 id)
+Article Store::article(const QString &source, qint64 id, QVector<StoreIssue> *issues)
 {
     DictionaryInfo dictionary{source, source, true, suggestLabel(source)};
     for (const auto &item : dictionaries()) if (item.source == source) dictionary = item;
@@ -137,7 +159,7 @@ Article Store::article(const QString &source, qint64 id)
     sqlite3 *db = nullptr;
     const auto path = databasePath(source).toUtf8();
     if (sqlite3_open_v2(path.constData(), &db, SQLITE_OPEN_READONLY, nullptr) != SQLITE_OK) {
-        if (db) sqlite3_close(db);
+        if (db) { issue(issues, source, db); sqlite3_close(db); }
         return result;
     }
     sqlite3_stmt *stmt = nullptr;
@@ -145,8 +167,11 @@ Article Store::article(const QString &source, qint64 id)
         sqlite3_prepare_v2(db, "SELECT id,headword,preview,html,'' FROM entries WHERE id=?1", -1, &stmt, nullptr);
     if (stmt) {
         sqlite3_bind_int64(stmt, 1, id);
-        if (sqlite3_step(stmt) == SQLITE_ROW) result = readRow(stmt, dictionary);
+        const int status = sqlite3_step(stmt);
+        if (status == SQLITE_ROW) result = readRow(stmt, dictionary);
+        else if (status != SQLITE_DONE) issue(issues, source, db);
     }
+    if (!stmt) issue(issues, source, db);
     if (stmt) sqlite3_finalize(stmt);
     sqlite3_close(db);
     return result;

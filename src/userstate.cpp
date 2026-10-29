@@ -7,19 +7,42 @@
 #include <sqlite3.h>
 
 namespace {
+thread_local QString stateError;
+
+int remember(sqlite3 *db, int status)
+{
+    if (status != SQLITE_OK && status != SQLITE_ROW && status != SQLITE_DONE)
+        stateError = QString::fromUtf8(sqlite3_errmsg(db));
+    return status;
+}
+
+int prepare(sqlite3 *db, const char *sql, int size, sqlite3_stmt **stmt, const char **tail)
+{
+    return remember(db, sqlite3_prepare_v2(db, sql, size, stmt, tail));
+}
+int step(sqlite3_stmt *stmt) { return remember(sqlite3_db_handle(stmt), sqlite3_step(stmt)); }
+int execute(sqlite3 *db, const char *sql, int (*cb)(void*,int,char**,char**), void *data, char **error)
+{
+    return remember(db, sqlite3_exec(db, sql, cb, data, error));
+}
+
 struct Connection {
     sqlite3 *db = nullptr;
     Connection()
     {
+        stateError.clear();
         const auto path = UserState::databasePath();
-        QDir().mkpath(QFileInfo(path).absolutePath());
+        if (!QDir().mkpath(QFileInfo(path).absolutePath())) {
+            stateError = QStringLiteral("Cannot create saved-word directory");
+            return;
+        }
         if (sqlite3_open(path.toUtf8().constData(), &db) != SQLITE_OK) {
-            if (db) sqlite3_close(db);
+            if (db) { stateError = QString::fromUtf8(sqlite3_errmsg(db)); sqlite3_close(db); }
             db = nullptr;
             return;
         }
         sqlite3_busy_timeout(db, 1000);
-        sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS history(source TEXT NOT NULL, entry_id INTEGER NOT NULL, headword TEXT NOT NULL, dictionary TEXT NOT NULL, viewed_at INTEGER NOT NULL, PRIMARY KEY(source,entry_id));"
+        execute(db, "CREATE TABLE IF NOT EXISTS history(source TEXT NOT NULL, entry_id INTEGER NOT NULL, headword TEXT NOT NULL, dictionary TEXT NOT NULL, viewed_at INTEGER NOT NULL, PRIMARY KEY(source,entry_id));"
                          "CREATE TABLE IF NOT EXISTS favorites(source TEXT NOT NULL, entry_id INTEGER NOT NULL, headword TEXT NOT NULL, dictionary TEXT NOT NULL, added_at INTEGER NOT NULL, PRIMARY KEY(source,entry_id));", nullptr, nullptr, nullptr);
     }
     ~Connection() { if (db) sqlite3_close(db); }
@@ -39,7 +62,7 @@ QVector<SavedEntry> list(const char *table, const QString &filter)
     if (qstrcmp(table, "favorites") == 0) {
         // Older article windows could save an empty source and damaged headword.
         // Recover only entries with a single unambiguous history match.
-        sqlite3_exec(connection.db,
+        execute(connection.db,
             "BEGIN;"
             "INSERT OR IGNORE INTO favorites(source,entry_id,headword,dictionary,added_at) "
             "SELECT h.source,h.entry_id,h.headword,h.dictionary,f.added_at FROM favorites f "
@@ -56,10 +79,10 @@ QVector<SavedEntry> list(const char *table, const QString &filter)
         + " FROM " + table + " WHERE headword LIKE ?1 OR dictionary LIKE ?1 ORDER BY "
         + (qstrcmp(table, "history") == 0 ? "viewed_at" : "added_at") + " DESC LIMIT 500";
     sqlite3_stmt *stmt = nullptr;
-    if (sqlite3_prepare_v2(connection.db, sql.constData(), -1, &stmt, nullptr) != SQLITE_OK) return result;
+    if (prepare(connection.db, sql.constData(), -1, &stmt, nullptr) != SQLITE_OK) return result;
     const auto search = (QStringLiteral("%") + filter + QStringLiteral("%")).toUtf8();
     sqlite3_bind_text(stmt, 1, search.constData(), -1, SQLITE_TRANSIENT);
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
+    while (step(stmt) == SQLITE_ROW) {
         result.push_back({textColumn(stmt, 0), sqlite3_column_int64(stmt, 1), textColumn(stmt, 2), textColumn(stmt, 3), sqlite3_column_int64(stmt, 4)});
     }
     sqlite3_finalize(stmt);
@@ -90,13 +113,13 @@ void UserState::recordVisit(const Article &article)
     Connection connection;
     if (!connection.db) return;
     sqlite3_stmt *stmt = nullptr;
-    if (sqlite3_prepare_v2(connection.db, "INSERT INTO history(source,entry_id,headword,dictionary,viewed_at) VALUES(?1,?2,?3,?4,?5) "
+    if (prepare(connection.db, "INSERT INTO history(source,entry_id,headword,dictionary,viewed_at) VALUES(?1,?2,?3,?4,?5) "
         "ON CONFLICT(source,entry_id) DO UPDATE SET viewed_at=excluded.viewed_at,headword=excluded.headword,dictionary=excluded.dictionary", -1, &stmt, nullptr) == SQLITE_OK) {
         bindArticle(stmt, article);
-        sqlite3_step(stmt);
+        step(stmt);
     }
     if (stmt) sqlite3_finalize(stmt);
-    sqlite3_exec(connection.db, "DELETE FROM history WHERE rowid NOT IN (SELECT rowid FROM history ORDER BY viewed_at DESC LIMIT 500)", nullptr, nullptr, nullptr);
+    execute(connection.db, "DELETE FROM history WHERE rowid NOT IN (SELECT rowid FROM history ORDER BY viewed_at DESC LIMIT 500)", nullptr, nullptr, nullptr);
 }
 
 QVector<SavedEntry> UserState::history(const QString &filter) { return list("history", filter); }
@@ -104,7 +127,7 @@ QVector<SavedEntry> UserState::history(const QString &filter) { return list("his
 void UserState::clearHistory()
 {
     Connection connection;
-    if (connection.db) sqlite3_exec(connection.db, "DELETE FROM history", nullptr, nullptr, nullptr);
+    if (connection.db) execute(connection.db, "DELETE FROM history", nullptr, nullptr, nullptr);
 }
 
 bool UserState::isFavorite(const QString &source, qint64 id)
@@ -113,11 +136,11 @@ bool UserState::isFavorite(const QString &source, qint64 id)
     if (!connection.db) return false;
     sqlite3_stmt *stmt = nullptr;
     bool found = false;
-    if (sqlite3_prepare_v2(connection.db, "SELECT 1 FROM favorites WHERE source=?1 AND entry_id=?2", -1, &stmt, nullptr) == SQLITE_OK) {
+    if (prepare(connection.db, "SELECT 1 FROM favorites WHERE source=?1 AND entry_id=?2", -1, &stmt, nullptr) == SQLITE_OK) {
         const auto bytes = source.toUtf8();
         sqlite3_bind_text(stmt, 1, bytes.constData(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int64(stmt, 2, id);
-        found = sqlite3_step(stmt) == SQLITE_ROW;
+        found = step(stmt) == SQLITE_ROW;
     }
     if (stmt) sqlite3_finalize(stmt);
     return found;
@@ -130,18 +153,20 @@ void UserState::setFavorite(const Article &article, bool favorite)
     if (!connection.db) return;
     sqlite3_stmt *stmt = nullptr;
     if (favorite) {
-        if (sqlite3_prepare_v2(connection.db, "INSERT INTO favorites(source,entry_id,headword,dictionary,added_at) VALUES(?1,?2,?3,?4,?5) "
+        if (prepare(connection.db, "INSERT INTO favorites(source,entry_id,headword,dictionary,added_at) VALUES(?1,?2,?3,?4,?5) "
             "ON CONFLICT(source,entry_id) DO UPDATE SET headword=excluded.headword,dictionary=excluded.dictionary", -1, &stmt, nullptr) == SQLITE_OK) {
             bindArticle(stmt, article);
-            sqlite3_step(stmt);
+            step(stmt);
         }
-    } else if (sqlite3_prepare_v2(connection.db, "DELETE FROM favorites WHERE source=?1 AND entry_id=?2", -1, &stmt, nullptr) == SQLITE_OK) {
+    } else if (prepare(connection.db, "DELETE FROM favorites WHERE source=?1 AND entry_id=?2", -1, &stmt, nullptr) == SQLITE_OK) {
         const auto bytes = article.source.toUtf8();
         sqlite3_bind_text(stmt, 1, bytes.constData(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int64(stmt, 2, article.id);
-        sqlite3_step(stmt);
+        step(stmt);
     }
     if (stmt) sqlite3_finalize(stmt);
 }
 
 QVector<SavedEntry> UserState::favorites(const QString &filter) { return list("favorites", filter); }
+
+QString UserState::lastError() { return stateError; }

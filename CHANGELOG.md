@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0
+
+- Add native Noctalia v5 launcher lookup, a searchable article panel, bar widget, and IPC endpoint (plugin API 24).
+- Share one KDE-independent C++ core and JSON CLI between the KRunner and Noctalia frontends, including existing dictionary configuration, bookmarks, and history.
+- Manage dictionary imports, enabled sources, labels, and ordering in the Noctalia panel. Surface lookup/process/database errors and reject stale asynchronous results.
+- Build the CLI and Noctalia frontend without KDE using `WORDSPRING_BUILD_KDE=OFF`; keep KRunner enabled by default.
+- Test and release both frontends from the same repository, with x86_64/arm64 binary packages and an independent Noctalia script archive.
+
 ## 0.1.0
 
 - Styled article sections inspired by Apple Dictionary, with local bookmarks and recent lookup history.
