@@ -41,7 +41,6 @@ function onQuery(query)
         title = item.headword .. " · " .. item.label,
         subtitle = if #meanings > 0 then table.concat(meanings, "\n") else item.preview,
         glyph = "book-2",
-        presentation = "detail",
       })
     end
     if response.warnings and #response.warnings > 0 then
