@@ -6,11 +6,13 @@ In KRunner, type `define word` to see up to four short meanings from each enable
 
 In Noctalia, type `/def word` in the launcher, search in the native article panel, or add the bar widget. The Luau frontend calls a KDE-independent JSON CLI. See [Noctalia installation and usage](wordspring/README.md) and the [CLI reference](docs/CLI.md).
 
+![Wordspring's Noctalia panel showing a Japanese dictionary lookup for 幸福](docs/screenshots/wordspring-noctalia.png)
+
 | Article | Dictionaries | Bookmarks and history |
 | --- | --- | --- |
 | ![Wordspring article window, using synthetic dictionary content](docs/screenshots/wordspring-article.png) | ![Wordspring dictionary settings, using synthetic dictionary names](docs/screenshots/wordspring-settings.png) | ![Wordspring saved words settings, using synthetic entries](docs/screenshots/wordspring-activity.png) |
 
-The screenshots use synthetic entries.
+The KRunner screenshots above use synthetic entries.
 
 > [!IMPORTANT]
 > **Wordspring Runner does not include any dictionaries.** You supply them. Apple's dictionaries are copyrighted by Apple and their publishers (Oxford University Press, Sanseido and others). Import only copies you own or are licensed to use, for example from a Mac you own, and follow the terms of that licence. Do not share imported databases. This project is not affiliated with or endorsed by Apple or any dictionary publisher.
