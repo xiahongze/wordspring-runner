@@ -21,6 +21,12 @@ struct Article {
     QString dictionaryLabel;
 };
 
+struct StoreIssue {
+    QString code;
+    QString message;
+    QString source;
+};
+
 class Store {
 public:
     static QString trigger();
@@ -32,6 +38,8 @@ public:
     static void setDictionaries(const QVector<DictionaryInfo> &items);
     static QString databasePath(const QString &source);
     static QString suggestLabel(const QString &name);
-    static QVector<Article> lookup(const QString &word, int limitPerDictionary = 2);
-    static Article article(const QString &source, qint64 id);
+    static QVector<Article> lookup(const QString &word, int limitPerDictionary = 2, QVector<StoreIssue> *issues = nullptr);
+    static Article article(const QString &source, qint64 id, QVector<StoreIssue> *issues = nullptr);
+    // Process-local override for CLI callers; never writes shared settings.
+    static void useDictionaries(const QVector<DictionaryInfo> &items);
 };

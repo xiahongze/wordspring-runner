@@ -19,4 +19,5 @@ public:
     static bool isFavorite(const QString &source, qint64 id);
     static void setFavorite(const Article &article, bool favorite);
     static QVector<SavedEntry> favorites(const QString &filter = {});
+    static QString lastError();
 };

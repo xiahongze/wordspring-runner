@@ -82,5 +82,5 @@ void StoreTest::lookupOnlyEnabled()
     QFile::remove(Store::databasePath(second));
 }
 
-QTEST_MAIN(StoreTest)
+QTEST_GUILESS_MAIN(StoreTest)
 #include "store_test.moc"
