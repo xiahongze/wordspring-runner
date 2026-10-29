@@ -1,0 +1,11 @@
+[[plugin]]
+id = "xiahongze/wordspring"
+name = "Wordspring"
+version = "0.2.0"
+plugin_api = 24
+author = "xiahongze"
+license = "GPL-3.0-or-later"
+icon = "book-2"
+description = "Look up words in your offline Apple and StarDict dictionaries."
+tags = ["dictionary", "launcher", "offline"]
+dependencies = ["wordspring-lookup"]

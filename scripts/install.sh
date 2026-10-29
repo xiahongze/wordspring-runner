@@ -56,10 +56,12 @@ fi
 runner=$plugins/kf6/krunner/krunner_wordspring.so
 kcm=$plugins/kf6/krunner/kcms/kcm_krunner_wordspring.so
 viewer=$prefix/bin/wordspring
+cli=$prefix/bin/wordspring-lookup
 importer=$prefix/share/wordspring/import_dictionary.py
 
 if [ "$action" = uninstall ]; then
-    rm -f "$runner" "$kcm" "$viewer" "$importer"
+    rm -f "$runner" "$kcm" "$viewer"
+    echo 'The shared CLI and importer are kept because Noctalia may use them.'
     [ -n "$env_script" ] && rm -f "$env_script"
     echo "Removed Wordspring Runner from $prefix."
     echo "Imported dictionaries and bookmarks remain in ${XDG_DATA_HOME:-$HOME/.local/share}/wordspring."
@@ -67,6 +69,7 @@ if [ "$action" = uninstall ]; then
 fi
 
 install -Dm755 "$here/bin/wordspring" "$viewer"
+install -Dm755 "$here/bin/wordspring-lookup" "$cli"
 install -Dm755 "$here/lib/qt6/plugins/kf6/krunner/krunner_wordspring.so" "$runner"
 install -Dm755 "$here/lib/qt6/plugins/kf6/krunner/kcms/kcm_krunner_wordspring.so" "$kcm"
 install -Dm644 "$here/share/wordspring/import_dictionary.py" "$importer"

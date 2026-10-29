@@ -4,6 +4,7 @@
 #include "core/error.h"
 #include <QCryptographicHash>
 #include <QDir>
+#include <QDebug>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -14,6 +15,14 @@
 namespace {
 bool hasOverride = false;
 QVector<DictionaryInfo> dictionaryOverride;
+
+QString readSetting(const QString &key, const QString &fallback)
+{
+    // Preserve the GUI's fallback behavior; the CLI validates configuration
+    // explicitly before entering this shared lookup path.
+    try { return Configuration::read(key, fallback); }
+    catch (const WordspringError &error) { qWarning() << error.message; return fallback; }
+}
 
 void issue(QVector<StoreIssue> *issues, const QString &source, sqlite3 *db)
 {
@@ -43,7 +52,7 @@ Article readRow(sqlite3_stmt *stmt, const DictionaryInfo &dictionary)
 }
 }
 
-QString Store::trigger() { return Configuration::read("Trigger", QStringLiteral("define")); }
+QString Store::trigger() { return readSetting("Trigger", QStringLiteral("define")); }
 
 void Store::reload() {} // Settings are read afresh on every operation.
 
@@ -52,7 +61,7 @@ void Store::setTrigger(const QString &trigger)
     Configuration::write({{"Trigger", trigger.trimmed()}});
 }
 
-QString Store::pythonExecutable() { return Configuration::read("PythonExecutable", QStringLiteral("python3")); }
+QString Store::pythonExecutable() { return readSetting("PythonExecutable", QStringLiteral("python3")); }
 
 QString Store::suggestLabel(const QString &name)
 {
@@ -78,9 +87,9 @@ QVector<DictionaryInfo> Store::dictionaries()
     QVector<DictionaryInfo> result;
     if (hasOverride) return dictionaryOverride;
     QJsonParseError error;
-    const auto document = QJsonDocument::fromJson(Configuration::read("Dictionaries", QStringLiteral("[]")).toUtf8(), &error);
+    const auto document = QJsonDocument::fromJson(readSetting("Dictionaries", QStringLiteral("[]")).toUtf8(), &error);
     if (error.error != QJsonParseError::NoError || !document.isArray())
-        throw WordspringError("invalid_config", "Dictionaries must be a JSON array");
+        return result;
     for (const auto &value : document.array()) {
         const auto object = value.toObject();
         DictionaryInfo item{object.value("source").toString(), object.value("name").toString(), object.value("enabled").toBool(true), object.value("label").toString()};

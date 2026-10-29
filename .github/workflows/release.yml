@@ -9,6 +9,9 @@ permissions:
   contents: read
 
 jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
   binaries:
     strategy:
       fail-fast: false
@@ -36,7 +39,9 @@ jobs:
       - name: Build
         run: cmake --build build
       - name: Test
-        run: ctest --test-dir build --output-on-failure
+        run: ctest --test-dir build --output-on-failure --timeout 30
+      - name: Verify KRunner and Noctalia packages
+        run: python3 tests/test_packages.py build
       - name: Package
         run: scripts/package.sh build dist linux-${{ matrix.arch }}
       - uses: actions/upload-artifact@v4
@@ -47,7 +52,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: binaries
+    needs: [binaries, checks]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -60,6 +65,7 @@ jobs:
           merge-multiple: true
       - name: Package source and checksums
         run: |
+          scripts/package-plugin.sh dist
           git archive --format=tar.gz --prefix="wordspring-runner-${GITHUB_REF_NAME#v}/" \
             -o "dist/wordspring-runner-${GITHUB_REF_NAME#v}-source.tar.gz" HEAD
           cd dist && sha256sum *.tar.gz > SHA256SUMS
@@ -72,6 +78,8 @@ jobs:
           ## Downloads
 
           - `wordspring-runner-*-linux-x86_64.tar.gz` and `wordspring-runner-*-linux-aarch64.tar.gz`: prebuilt for Plasma 6 on Debian 13 or any distribution with Qt 6.8 and KDE Frameworks 6.13 or newer (Arch, Fedora 42+, openSUSE Tumbleweed, Kubuntu 25.10+). Unpack and run `./install.sh`.
+          - `wordspring-noctalia-*-linux-x86_64.tar.gz` and `wordspring-noctalia-*-linux-aarch64.tar.gz`: Noctalia scripts, the Qt Core/SQLite JSON CLI, and dictionary importer. No KDE runtime dependency. Unpack and run `./install.sh`, then enable `xiahongze/wordspring` in Noctalia.
+          - `wordspring-noctalia-*-plugin.tar.gz`: architecture-independent Noctalia plugin scripts; install the matching `wordspring-lookup` CLI separately. Requires plugin API 24 or newer.
           - `wordspring-runner-*-source.tar.gz`: build from source as described in the README.
 
           No dictionary data is included. Import only dictionaries you own or are licensed to use.

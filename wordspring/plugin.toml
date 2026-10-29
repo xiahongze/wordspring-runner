@@ -1,0 +1,112 @@
+id = "xiahongze/wordspring"
+name = "Wordspring"
+version = "0.2.0"
+plugin_api = 24
+author = "xiahongze"
+license = "GPL-3.0-or-later"
+icon = "book-2"
+description = "Look up words in your offline Apple and StarDict dictionaries."
+tags = ["dictionary", "launcher", "offline"]
+dependencies = ["wordspring-lookup"]
+
+[[widget]]
+id = "dictionary"
+entry = "widget.luau"
+  [widget.actions]
+  left = "panel-toggle xiahongze/wordspring:panel"
+  right = "settings-open-plugin xiahongze/wordspring"
+
+[[launcher_provider]]
+id = "define"
+entry = "launcher.luau"
+prefix = "def"
+glyph = "book-2"
+include_in_global_search = false
+debounce_ms = 200
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 760
+height = 640
+placement = "floating"
+position = "center"
+keyboard_focus = "exclusive"
+
+# A singleton makes keybindings work before any widget/panel has been opened.
+[[service]]
+id = "ipc"
+entry = "service.luau"
+
+[[setting]]
+key = "cli_path"
+type = "string"
+label_key = "settings.cli_path.label"
+description_key = "settings.cli_path.description"
+default = "wordspring-lookup"
+
+[[setting]]
+key = "config_path"
+type = "file"
+label_key = "settings.config_path.label"
+description_key = "settings.config_path.description"
+default = ""
+advanced = true
+
+[[setting]]
+key = "dictionaries_json"
+type = "string"
+label_key = "settings.dictionaries_json.label"
+description_key = "settings.dictionaries_json.description"
+default = ""
+advanced = true
+
+[[setting]]
+key = "krunner_keyword"
+type = "string"
+label_key = "settings.krunner_keyword.label"
+description_key = "settings.krunner_keyword.description"
+default = ""
+
+[[setting]]
+key = "python_executable"
+type = "string"
+label_key = "settings.python_executable.label"
+description_key = "settings.python_executable.description"
+default = ""
+
+[[setting]]
+key = "limit_per_dictionary"
+type = "int"
+label_key = "settings.limit_per_dictionary.label"
+default = 2
+min = 1
+max = 20
+
+[[setting]]
+key = "timeout_ms"
+type = "int"
+label_key = "settings.timeout_ms.label"
+default = 3000
+min = 100
+max = 60000
+
+[[setting]]
+key = "panel_debounce_ms"
+type = "int"
+label_key = "settings.panel_debounce_ms.label"
+default = 200
+min = 0
+max = 2000
+
+[[setting]]
+key = "glyph"
+type = "glyph"
+label_key = "settings.glyph.label"
+default = "book-2"
+
+[[setting]]
+key = "show_label"
+type = "bool"
+label_key = "settings.show_label.label"
+default = false

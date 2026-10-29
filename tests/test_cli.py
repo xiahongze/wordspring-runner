@@ -160,6 +160,13 @@ class CliTest(unittest.TestCase):
         state.mkdir()
         self.call("history", error="state_unavailable")
 
+    def test_remove_orphaned_bookmark(self):
+        args = ("--source", self.source, "--id", "1")
+        self.call("favorite", *args, "--enabled", "true")
+        self.db.unlink()
+        self.call("favorite", *args, "--enabled", "false")
+        self.assertEqual(self.call("favorites")["entries"], [])
+
     def test_lookup_does_not_need_a_network(self):
         self.env.update(http_proxy="http://127.0.0.1:1", https_proxy="http://127.0.0.1:1", NOCTALIA_OFFLINE="1")
         self.assertTrue(self.call("lookup", "happy")["ok"])

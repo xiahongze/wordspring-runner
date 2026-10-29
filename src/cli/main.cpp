@@ -233,9 +233,19 @@ QJsonObject dispatch(const QString &command, const QStringList &arguments, const
         return {{"article", articleJson(article, true)}};
     }
     if (command == QStringLiteral("favorite")) {
-        const auto article = entry(parser);
         const auto favorite = parser.value("enabled");
         if (favorite != QStringLiteral("true") && favorite != QStringLiteral("false")) throw WordspringError("invalid_arguments", "Supply --enabled true or --enabled false");
+        Article article;
+        if (favorite == QStringLiteral("true")) article = entry(parser);
+        else {
+            bool valid = false;
+            article.id = parser.value("id").toLongLong(&valid);
+            article.source = expanded(parser.value("source"));
+            if (!valid || article.id <= 0 || article.source.isEmpty()) throw WordspringError("invalid_arguments", "An entry needs --source and a positive --id");
+            // Deletion must still work after an imported dictionary is removed.
+            // The headword is not used by the DELETE statement.
+            article.headword = QStringLiteral("removed entry");
+        }
         UserState::setFavorite(article, favorite == QStringLiteral("true"));
         checkState();
         return {{"favorite", favorite == QStringLiteral("true")}};
@@ -302,6 +312,8 @@ int main(int argc, char **argv)
         auto positional = parser.positionalArguments();
         if (positional.isEmpty()) throw WordspringError("invalid_arguments", "Supply a command; see --help");
         const auto command = positional.takeFirst();
+        if (command != QStringLiteral("configure") && !parser.isSet("dictionaries-json"))
+            parseDictionaries(Configuration::read("Dictionaries", QStringLiteral("[]")));
         if (parser.isSet("dictionaries-json") && command != QStringLiteral("configure")) Store::useDictionaries(parseDictionaries(parser.value("dictionaries-json")));
         auto result = dispatch(command, positional, parser);
         result.insert("ok", true);

@@ -1,6 +1,10 @@
-# Wordspring Runner
+# Wordspring
 
-An offline dictionary lookup plugin for Plasma 6 KRunner. Type `define word` to see up to four short meanings from each enabled dictionary; press Enter to read the full entry in a styled article window. Bookmark entries and revisit recent lookups from settings. The trigger word is configurable.
+An offline dictionary reader with frontends for **Plasma 6 KRunner** and **native Noctalia v5**. Both use the same C++ core, imported dictionaries, bookmarks, and history.
+
+In KRunner, type `define word` to see up to four short meanings from each enabled dictionary; press Enter to read the full entry in a styled article window. Bookmark entries and revisit recent lookups from settings. The trigger word is configurable. KRunner remains supported with its own binary release packages.
+
+In Noctalia, type `/def word` in the launcher, search in the native article panel, or add the bar widget. The Luau frontend calls a KDE-independent JSON CLI. See [Noctalia installation and usage](wordspring/README.md) and the [CLI reference](docs/CLI.md).
 
 | Article | Dictionaries | Bookmarks and history |
 | --- | --- | --- |
@@ -21,7 +25,7 @@ The screenshots use synthetic entries.
 
 ## Install
 
-You need Plasma 6. Choose a prebuilt release or build from source, then [set up the importer](#set-up-the-dictionary-importer) and [add dictionaries](#add-dictionaries).
+For the KRunner frontend below, you need Plasma 6. Choose a prebuilt release or build from source, then [set up the importer](#set-up-the-dictionary-importer) and [add dictionaries](#add-dictionaries). Noctalia users can use the separate `wordspring-noctalia-*-linux-ARCH.tar.gz` package or [build with KDE disabled](wordspring/README.md#install).
 
 ### Prebuilt release (x86_64 and arm64)
 
@@ -38,7 +42,7 @@ cd "wordspring-runner-$version-linux-$arch"
 ./install.sh
 ```
 
-`./install.sh` installs for your user under `~/.local` and adds `~/.config/plasma-workspace/env/wordspring.sh`, so Plasma adds the user plugin directory to Qt's search path. **Log out and back in** before using KRunner. To install for all users instead, run `sudo ./install.sh --system`, then restart KRunner with `kquitapp6 krunner`. `./install.sh --uninstall` (with `sudo` and `--system` for a system install) removes the program and keeps your imported dictionaries and bookmarks.
+`./install.sh` installs for your user under `~/.local` and adds `~/.config/plasma-workspace/env/wordspring.sh`, so Plasma adds the user plugin directory to Qt's search path. **Log out and back in** before using KRunner. To install for all users instead, run `sudo ./install.sh --system`, then restart KRunner with `kquitapp6 krunner`. `./install.sh --uninstall` (with `sudo` and `--system` for a system install) removes the KDE frontend and keeps imported dictionaries, bookmarks, and the shared CLI/importer that Noctalia may use.
 
 ### Build from source
 
@@ -61,7 +65,7 @@ ctest --test-dir build --output-on-failure
 sudo cmake --install build
 ```
 
-The install adds a native KRunner plugin, its configuration module, the `wordspring` article and settings application, and the importer. Restart KRunner or log out and back in so Plasma discovers the new plugin.
+The install adds a native KRunner plugin, its configuration module, the `wordspring` article and settings application, the `wordspring-lookup` JSON CLI, the importer, and Noctalia scripts. Restart KRunner or log out and back in so Plasma discovers the new plugin. The KDE targets remain enabled by default; `-DWORDSPRING_BUILD_KDE=OFF` builds only the CLI and Noctalia frontend. `-DWORDSPRING_INSTALL_NOCTALIA=OFF` omits the scripts.
 
 For a per-user installation, configure with `-DCMAKE_INSTALL_PREFIX="$HOME/.local"`, run `cmake --install build` without `sudo`, and copy [`scripts/wordspring-plasma-env.sh`](scripts/wordspring-plasma-env.sh) into `~/.config/plasma-workspace/env/`. Log out and back in so Plasma includes the user plugin directory in Qt's search path.
 
@@ -105,7 +109,7 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-The C++ tests check indexed, Unicode, enabled-source lookup, bookmark and history persistence, article controls, and linked-entry navigation. The Python test builds a tiny StarDict fixture and checks synonym import, HTML filtering, and Apple-style structure. The importer can also be run directly:
+The tests check indexed/Unicode/enabled-source lookup, bookmark/history persistence, KConfig compatibility, article controls, linked-entry navigation, the JSON CLI, and importer behavior using synthetic fixtures. `noctalia plugins lint wordspring` checks the manifest and declared settings. With `luau` on PATH, CTest also executes the real Luau entries with isolated mock host environments to test debounce, races, errors, IPC, and actions. Editor definitions and luau-lsp configuration are included. The importer can also be run directly:
 
 ```bash
 python importer/import_dictionary.py --input /path/to/dictionary.ifo --output /tmp/example.sqlite
@@ -113,7 +117,9 @@ python importer/import_dictionary.py --input /path/to/dictionary.ifo --output /t
 
 ### Releases
 
-Pushing a `v*` tag runs [`.github/workflows/release.yml`](.github/workflows/release.yml). It builds and tests in a Debian 13 container on native x86_64 and arm64 GitHub runners, packages each build with [`scripts/package.sh`](scripts/package.sh), and publishes the tarballs, a source archive and `SHA256SUMS` to a GitHub release. Release notes come from the matching `CHANGELOG.md` section.
+Pull requests run [CI](.github/workflows/ci.yml): full KDE and CLI builds, a build without KDE, synthetic CLI/importer tests, Noctalia manifest validation and Luau callback tests, and installer/archive checks.
+
+Pushing a `v*` tag runs [the release workflow](.github/workflows/release.yml), gated by those checks. It builds and tests in Debian 13 containers on native x86_64 and arm64 GitHub runners, then publishes **both KRunner and Noctalia binary packages**, an architecture-independent Noctalia plugin archive, the source archive, and `SHA256SUMS`. The KRunner artifact names and installation workflow are retained. Release notes come from the matching `CHANGELOG.md` section. No release is published by opening or merging a PR; publishing requires a version tag.
 
 ## Credits and license
 

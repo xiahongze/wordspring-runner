@@ -3,7 +3,7 @@
     "Name": "Wordspring Runner",
     "Description": "Look up words in offline dictionaries",
     "Icon": "accessories-dictionary",
-    "Version": "0.1.0",
+    "Version": "0.2.0",
     "License": "GPL-3.0-or-later",
     "EnabledByDefault": true
   },
